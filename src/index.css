@@ -1,0 +1,645 @@
+/* :root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+} */
+
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+
+.hideScrollbar::-webkit-scrollbar{
+  width: 0px;
+  display: none;
+}
+
+/* SoulConnect CSS Variables */
+:root {
+  /* Primary Colors - Coral Rose */
+  --primary-50: #FFF5F5;
+  --primary-100: #FFE8E8;
+  --primary-200: #FFD1D1;
+  --primary-300: #FFB3B3;
+  --primary-400: #FF8A8A;
+  --primary-500: #FF6B6B;
+  --primary-600: #FF5252;
+  --primary-700: #FF3838;
+  --primary-800: #FF1F1F;
+  --primary-900: #E60000;
+
+  /* Secondary Colors - Sky Blue */
+  --secondary-50: #F0FDFC;
+  --secondary-100: #CCFBF1;
+  --secondary-200: #99F6E4;
+  --secondary-300: #5EEAD4;
+  --secondary-400: #2DD4BF;
+  --secondary-500: #4ECDC4;
+  --secondary-600: #0D9488;
+  --secondary-700: #0F766E;
+  --secondary-800: #115E59;
+  --secondary-900: #134E4A;
+
+  /* Accent Colors - Lavender */
+  --accent-50: #F8FFFE;
+  --accent-100: #F0FDF4;
+  --accent-200: #DCFCE7;
+  --accent-300: #BBF7D0;
+  --accent-400: #86EFAC;
+  --accent-500: #A8E6CF;
+  --accent-600: #16A34A;
+  --accent-700: #15803D;
+  --accent-800: #166534;
+  --accent-900: #14532D;
+
+  /* Warm Colors - Beige */
+  --warm-50: #FFFBEB;
+  --warm-100: #FEF3C7;
+  --warm-200: #FDE68A;
+  --warm-300: #FCD34D;
+  --warm-400: #FBBF24;
+  --warm-500: #FFEAA7;
+  --warm-600: #D97706;
+  --warm-700: #B45309;
+  --warm-800: #92400E;
+  --warm-900: #78350F;
+
+  /* Dark Theme Variables */
+  --dark-bg: #0F0F23;
+  --dark-paper: #1A1A2E;
+  --dark-surface: #2D3748;
+  --dark-text-primary: #E8F4FD;
+  --dark-text-secondary: #B8C5D1;
+  --dark-text-disabled: #8A9BA8;
+  --dark-divider: #2D3748;
+
+  /* Light Theme Variables */
+  --light-bg: #FEFEFE;
+  --light-paper: #F8FAFC;
+  --light-surface: #EDF2F7;
+  --light-text-primary: #1A202C;
+  --light-text-secondary: #4A5568;
+  --light-text-disabled: #A0AEC0;
+  --light-divider: #E2E8F0;
+  
+  /* Ensure proper text contrast */
+  --text-primary: var(--dark-text-primary);
+  --text-secondary: var(--dark-text-secondary);
+  --text-disabled: var(--dark-text-disabled);
+}
+
+body{
+  background: var(--dark-bg); /* SoulConnect dark background */
+  color: var(--dark-text-primary); /* SoulConnect light text */
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  min-height: 100vh;
+  width: 100%;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Light theme body styles */
+.light-theme body {
+  background: var(--light-bg); /* SoulConnect light background */
+  color: var(--light-text-primary); /* SoulConnect dark text */
+}
+
+/* Light theme CSS variables */
+.light-theme {
+  --text-primary: var(--light-text-primary);
+  --text-secondary: var(--light-text-secondary);
+  --text-disabled: var(--light-text-disabled);
+  --bg-primary: var(--light-bg);
+  --bg-paper: var(--light-paper);
+  --bg-surface: var(--light-surface);
+  --divider-color: var(--light-divider);
+}
+
+/* Dark theme CSS variables */
+.dark-theme {
+  --text-primary: var(--dark-text-primary);
+  --text-secondary: var(--dark-text-secondary);
+  --text-disabled: var(--dark-text-disabled);
+  --bg-primary: var(--dark-bg);
+  --bg-paper: var(--dark-paper);
+  --bg-surface: var(--dark-surface);
+  --divider-color: var(--dark-divider);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Ensure all containers respect viewport width */
+.container, .MuiContainer-root {
+  max-width: 100% !important;
+  overflow-x: hidden;
+}
+
+/* Message layout fixes */
+.message-container {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.message-left-panel {
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.message-right-panel {
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.message-chat-area {
+  flex: 1;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.message-input-area {
+  flex-shrink: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Group Chat width fixes */
+.group-chat-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.group-chat-header {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.group-chat-messages {
+  flex: 1;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.group-chat-input {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* Fix for Material-UI Grid components */
+.MuiGrid-container {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.MuiGrid-item {
+  max-width: 100% !important;
+  overflow: hidden;
+}
+
+/* Ensure Grid items take full width */
+.MuiGrid-item-xs-9 {
+  width: 75% !important;
+  max-width: 75% !important;
+  flex-basis: 75% !important;
+}
+
+.MuiGrid-item-xs-3 {
+  width: 25% !important;
+  max-width: 25% !important;
+  flex-basis: 25% !important;
+}
+
+/* Modern Scrollbar Styling - Works in all browsers */
+/* Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, var(--primary-500), var(--secondary-500));
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, var(--primary-600), var(--secondary-600));
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(45deg, var(--primary-700), var(--secondary-700));
+}
+
+::-webkit-scrollbar-corner {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-500) rgba(0, 0, 0, 0.1);
+}
+
+/* Dark theme scrollbar for dark backgrounds */
+.dark-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #d1d5db, #9ca3af);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, #9ca3af, #6b7280);
+}
+
+/* Light theme scrollbar for light backgrounds */
+.light-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.light-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #6b7280, #4b5563);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.light-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, #4b5563, #374151);
+}
+
+/* Thin scrollbar variant */
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #9ca3af, #6b7280);
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+/* Thick scrollbar variant */
+.thick-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.thick-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #9ca3af, #6b7280);
+  border-radius: 12px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* Custom colored scrollbars */
+.blue-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #9ca3af, #6b7280);
+}
+
+.green-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #9ca3af, #6b7280);
+}
+
+.purple-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #9ca3af, #6b7280);
+}
+
+.red-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #9ca3af, #6b7280);
+}
+
+/* Smooth scrolling for all elements */
+* {
+  scroll-behavior: smooth;
+}
+
+/* Mobile-specific fixes */
+@media (max-width: 768px) {
+  .MuiGrid-item {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+}
+
+/* Instagram-like layout styles */
+.instagram-layout {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sticky-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: transparent;
+}
+
+/* Sidebar specific styles */
+.sidebar-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-profile {
+  flex-shrink: 0;
+  background: transparent;
+}
+
+.scrollable-content {
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Feed content with proper scrolling */
+.feed-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-top: 8px;
+}
+
+/* Ensure feed container is not sticky */
+.feed-container {
+  position: relative;
+}
+
+/* Sticky stories section */
+.sticky-stories {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background-color: var(--dark-paper); /* SoulConnect dark paper */
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.3s ease;
+}
+
+.light-theme .sticky-stories {
+  background-color: var(--light-paper); /* SoulConnect light paper */
+}
+
+/* Custom scrollbar for better UX */
+.sticky-sidebar::-webkit-scrollbar,
+.scrollable-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sticky-sidebar::-webkit-scrollbar-track,
+.scrollable-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sticky-sidebar::-webkit-scrollbar-thumb,
+.scrollable-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.sticky-sidebar::-webkit-scrollbar-thumb:hover,
+.scrollable-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Ensure proper height calculations */
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Sticky story section styles */
+.sticky-story-section {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--dark-paper); /* SoulConnect dark paper */
+  border-bottom: 1px solid var(--dark-divider); /* SoulConnect dark divider */
+  backdrop-filter: blur(10px);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.light-theme .sticky-story-section {
+  background: var(--light-paper); /* SoulConnect light paper */
+  border-bottom: 1px solid var(--light-divider); /* SoulConnect light divider */
+}
+
+/* Feed layout improvements */
+.feed-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.feed-posts-container {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 20px;
+}
+
+/* Ensure proper scrolling behavior */
+.feed-posts-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.feed-posts-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.feed-posts-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.feed-posts-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 768px) {
+  /* Ensure modals work properly on mobile */
+  .MuiModal-root {
+    padding: 8px;
+  }
+  
+  /* Fix story section on mobile */
+  .sticky-story-section {
+    padding: 12px 16px;
+  }
+  
+  /* Ensure proper touch targets */
+  .MuiIconButton-root {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  /* Fix text input sizing on mobile */
+  input, textarea {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+  
+  /* Ensure proper spacing on mobile */
+  .feed-container {
+    padding: 0 8px;
+  }
+  
+  /* Fix avatar sizing on mobile */
+  .MuiAvatar-root {
+    min-width: 32px;
+    min-height: 32px;
+  }
+}
+
+/* Tablet specific adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .sticky-story-section {
+    padding: 16px 20px;
+  }
+  
+  .feed-container {
+    padding: 0 16px;
+  }
+}
+
+/* Skeleton loading animations */
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.1) 25%, 
+    rgba(255, 255, 255, 0.2) 50%, 
+    rgba(255, 255, 255, 0.1) 75%
+  );
+  background-size: 200px 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+/* Enhanced skeleton loading styles */
+.MuiSkeleton-root {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.MuiSkeleton-root::after {
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.1), 
+    transparent
+  );
+  animation: skeleton-loading 1.5s infinite;
+}
