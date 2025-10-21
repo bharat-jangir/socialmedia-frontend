@@ -27,6 +27,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser'
-  }
+    minify: 'terser',
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  },
+  publicDir: 'public'
 })

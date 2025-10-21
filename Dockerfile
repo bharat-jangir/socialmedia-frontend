@@ -24,6 +24,10 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
+# Create necessary directories and set permissions
+RUN mkdir -p /usr/share/nginx/html/carousel-images && \
+    chmod -R 755 /usr/share/nginx/html
+
 # Expose port
 EXPOSE 80
 
