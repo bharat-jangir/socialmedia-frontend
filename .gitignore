@@ -93,7 +93,7 @@ dist
 
 # Gatsby files
 .cache/
-public
+# public (commented out - we need public folder for static assets)
 
 # Vuepress build output
 .vuepress/dist
@@ -234,7 +234,7 @@ node_modules/
 .vscode-test
 
 # Application specific
-public/uploads/
+# public/uploads/ (commented out - we need public folder)
 src/assets/uploads/
 temp/
 uploads/
