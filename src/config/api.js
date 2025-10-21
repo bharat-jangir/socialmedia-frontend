@@ -23,7 +23,7 @@ api.interceptors.request.use(
   }
 );
 
-// Add response interceptor to handle 401 errors and redirect to login
+// Add response interceptor to handle errors
 api.interceptors.response.use(
   (response) => {
     return response;
@@ -46,6 +46,11 @@ api.interceptors.response.use(
           window.location.href = '/login';
         }, 100);
       }
+    } else if (error.response?.status === 400) {
+      // Bad Request - log the error details
+      console.error("Bad Request Error:", error.response.data);
+      console.error("Request URL:", error.config?.url);
+      console.error("Request Method:", error.config?.method);
     }
     return Promise.reject(error);
   }
