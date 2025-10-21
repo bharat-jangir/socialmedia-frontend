@@ -11,6 +11,6 @@
     }
   ],
   "env": {
-    "VITE_API_BASE_URL": "https://bharat-social-backend.onrender.com"
+    "VITE_API_BASE_URL": "https://socialmedia-backend-o9n1.onrender.com"
   }
 }
