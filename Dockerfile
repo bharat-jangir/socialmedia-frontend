@@ -22,7 +22,7 @@ FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx-simple.conf /etc/nginx/conf.d/default.conf
 
 # Create necessary directories and set permissions
 RUN mkdir -p /usr/share/nginx/html/carousel-images && \
