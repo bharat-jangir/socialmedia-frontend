@@ -5,6 +5,7 @@ if (typeof global === 'undefined') {
 
 import Stomp from 'stompjs';
 import SockJS from 'sockjs-client/dist/sockjs';
+import { API_BASE_URL } from '../config/api';
 
 // Auto-enable audio on first user interaction
 const enableAudioOnInteraction = () => {
@@ -108,8 +109,38 @@ const WebSocketService = {
 
         console.log('🔌 Initializing WebSocket connection...');
 
+        // Get WebSocket URL from API base URL
+        // IMPORTANT: When page is loaded over HTTPS, we MUST use HTTPS/WSS, not HTTP/WS
+        const getWebSocketUrl = () => {
+          const isHttps = window.location.protocol === 'https:';
+          
+          // If API_BASE_URL is provided, ensure it uses HTTPS if page is HTTPS
+          if (API_BASE_URL) {
+            let wsUrl = API_BASE_URL;
+            // Force HTTPS if page is loaded over HTTPS
+            if (isHttps && wsUrl.startsWith('http://')) {
+              wsUrl = wsUrl.replace('http://', 'https://');
+            }
+            return `${wsUrl}/ws`;
+          }
+          
+          // Fallback for local development
+          const protocol = isHttps ? 'https:' : 'http:';
+          const host = window.location.hostname;
+          const port = window.location.port || (isHttps ? '443' : '5000');
+          return `${protocol}//${host}${port !== '443' && port !== '80' ? ':' + port : ''}/ws`;
+        };
+
+        const wsUrl = getWebSocketUrl();
+        console.log('🔌 WebSocket URL:', wsUrl);
+        console.log('🔌 Current page protocol:', window.location.protocol);
+        
         // Create SockJS connection
-        const socket = new SockJS('http://localhost:5000/ws');
+        // SockJS automatically uses secure transport (wss://) if page is loaded over HTTPS
+        // Even if URL starts with http://, SockJS upgrades to wss:// for HTTPS pages
+        const socket = new SockJS(wsUrl, null, {
+          transports: ['websocket', 'xhr-streaming', 'xhr-polling']
+        });
         WebSocketService.stompClient = Stomp.over(socket);
         
         // Disable debug logging
