@@ -546,11 +546,35 @@ const groupSlice = createSlice({
       .addCase(addGroupMember.fulfilled, (state, action) => {
         const { groupId, data } = action.payload;
         
-        // Add member to group members
+        // Response structure: { message, status, data: GroupMember }
+        const member = data?.data || data;
+        
+        // Add member to group members if not already present
         if (!state.groupMembers[groupId]) {
           state.groupMembers[groupId] = [];
         }
-        state.groupMembers[groupId].push(data.data);
+        
+        // Check if member already exists (avoid duplicates)
+        const existingIndex = state.groupMembers[groupId].findIndex(
+          m => m.user?.id === member?.user?.id || m.id === member?.id
+        );
+        
+        if (existingIndex !== -1) {
+          // Update existing member
+          state.groupMembers[groupId][existingIndex] = member;
+        } else {
+          // Add new member
+          state.groupMembers[groupId].push(member);
+        }
+        
+        // Update group's active member count if group exists in groups list
+        const groupIndex = state.groups.findIndex(g => g.id === groupId);
+        if (groupIndex !== -1) {
+          const activeCount = state.groupMembers[groupId]?.filter(
+            m => m.status === 'ACTIVE'
+          ).length || 0;
+          state.groups[groupIndex].activeMemberCount = activeCount;
+        }
         
         state.error = null;
       })
@@ -562,11 +586,25 @@ const groupSlice = createSlice({
       .addCase(removeGroupMember.fulfilled, (state, action) => {
         const { groupId, memberId } = action.payload;
         
-        // Remove member from group members
+        // Remove member from group members (update status to REMOVED or remove from list)
         if (state.groupMembers[groupId]) {
-          state.groupMembers[groupId] = state.groupMembers[groupId].filter(
-            member => member.user.id !== memberId
+          const memberIndex = state.groupMembers[groupId].findIndex(
+            member => member.user?.id === memberId || member.id === memberId
           );
+          
+          if (memberIndex !== -1) {
+            // Update status to REMOVED instead of removing, to maintain history
+            state.groupMembers[groupId][memberIndex].status = 'REMOVED';
+          }
+        }
+        
+        // Update group's active member count
+        const groupIndex = state.groups.findIndex(g => g.id === groupId);
+        if (groupIndex !== -1) {
+          const activeCount = state.groupMembers[groupId]?.filter(
+            m => m.status === 'ACTIVE'
+          ).length || 0;
+          state.groups[groupIndex].activeMemberCount = activeCount;
         }
         
         state.error = null;
@@ -618,7 +656,18 @@ const groupSlice = createSlice({
       // Get Group Members
       .addCase(getGroupMembers.fulfilled, (state, action) => {
         const { groupId, data } = action.payload;
-        state.groupMembers[groupId] = data.data;
+        
+        // Handle response structure: data.data or data (array)
+        const members = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+        state.groupMembers[groupId] = members;
+        
+        // Update group's active member count if group exists in groups list
+        const groupIndex = state.groups.findIndex(g => g.id === groupId);
+        if (groupIndex !== -1) {
+          const activeCount = members.filter(m => m.status === 'ACTIVE').length;
+          state.groups[groupIndex].activeMemberCount = activeCount;
+        }
+        
         state.error = null;
       })
       .addCase(getGroupMembers.rejected, (state, action) => {

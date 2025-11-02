@@ -46,3 +46,17 @@ export const getAllChats = createAsyncThunk(
     }
   }
 );
+
+export const deleteChat = createAsyncThunk(
+  "message/deleteChat",
+  async (chatId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/api/chats/${chatId}`);
+      console.log("Chat Deleted", chatId);
+      return chatId;
+    } catch (error) {
+      console.log(error.response?.data || error.message);
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);

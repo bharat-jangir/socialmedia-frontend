@@ -13,9 +13,15 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
+  ListItemSecondaryAction,
   Divider,
   Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import {
@@ -24,6 +30,11 @@ import {
   EmojiEmotions as EmojiIcon,
   MoreVert as MoreVertIcon,
   Group as GroupIcon,
+  ArrowBack as ArrowBackIcon,
+  People as PeopleIcon,
+  Delete as DeleteIcon,
+  Search as SearchIcon,
+  PersonAdd as PersonAddIcon,
 } from "@mui/icons-material";
 import {
   getGroupMessages,
@@ -31,15 +42,21 @@ import {
   sendGroupMediaMessage,
   addGroupMessageReaction,
   markGroupMessagesAsRead,
+  getGroupMembers,
+  removeGroupMember,
+  addGroupMember,
 } from "../../state/Groups/groupActions";
+import { searchUsers } from "../../state/Auth/authActions";
 import { updateMessageReactions } from "../../state/Groups/groupSlice";
 import { uploadToCloudinary } from "../../utils/uploadToCloudinary";
 import WebSocketService from "../../utils/sockets";
+import { formatMessageTime } from "../../utils/dateTimeUtils";
 
 const GroupChat = ({ group, onClose }) => {
   const dispatch = useDispatch();
   const theme = useTheme();
-  const { groupMessages, sendingMessage } = useSelector((state) => state.groups);
+  const { groupMessages, sendingMessage, groupMembers, loading: groupsLoading } = useSelector((state) => state.groups);
+  const { users: searchResults } = useSelector((state) => state.auth);
   const currentUser = useSelector((state) => state.auth.user);
   
   const [newMessage, setNewMessage] = useState("");
@@ -49,6 +66,11 @@ const GroupChat = ({ group, onClose }) => {
   const [isTyping, setIsTyping] = useState(false);
   const [optimisticReactions, setOptimisticReactions] = useState({});
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showMembersDialog, setShowMembersDialog] = useState(false);
+  const [showEditGroupDialog, setShowEditGroupDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -246,6 +268,8 @@ const GroupChat = ({ group, onClose }) => {
     if (group?.id) {
       dispatch(getGroupMessages({ groupId: group.id }));
       dispatch(markGroupMessagesAsRead(group.id));
+      // Also load group members
+      dispatch(getGroupMembers(group.id));
     }
   }, [group?.id, dispatch]);
 
@@ -812,18 +836,68 @@ const GroupChat = ({ group, onClose }) => {
     return message.sender?.id === currentUser?.id;
   };
 
-  // Format message time
-  const formatMessageTime = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now - date) / (1000 * 60 * 60);
-    
-    if (diffInHours < 24) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else {
-      return date.toLocaleDateString();
+  // Handle remove member
+  const handleRemoveMember = async (memberId) => {
+    if (!window.confirm("Are you sure you want to remove this member from the group?")) {
+      return;
+    }
+
+    try {
+      await dispatch(removeGroupMember({ groupId: group.id, memberId }));
+      // Reload members after removal
+      dispatch(getGroupMembers(group.id));
+    } catch (error) {
+      console.error("Error removing member:", error);
+      alert("Failed to remove member. Only group admins can remove members.");
     }
   };
+
+  // Check if current user is admin
+  const isCurrentUserAdmin = () => {
+    const members = groupMembers[group?.id] || [];
+    const currentMember = members.find(m => m.user?.id === currentUser?.id);
+    return currentMember?.role === 'ADMIN' || group?.admin?.id === currentUser?.id || group?.createdBy?.id === currentUser?.id;
+  };
+
+  // Handle search users
+  const handleSearchUsers = async (query) => {
+    setSearchQuery(query);
+    if (query.trim().length >= 2) {
+      setSearchLoading(true);
+      try {
+        await dispatch(searchUsers(query));
+      } finally {
+        setSearchLoading(false);
+      }
+    }
+  };
+
+  // Handle add member
+  const handleAddMember = async (userId) => {
+    try {
+      const result = await dispatch(addGroupMember({ groupId: group.id, memberId: userId }));
+      
+      // Check if the action was successful
+      if (result.type.endsWith('fulfilled')) {
+        // Immediately update the UI by reloading members
+        await dispatch(getGroupMembers(group.id));
+        
+        // Clear search query after successful add
+        setSearchQuery("");
+        
+        // Also update the group object's activeMemberCount if available
+        // The Redux slice should handle this, but we can force a refresh if needed
+      } else {
+        throw new Error(result.payload || "Failed to add member");
+      }
+    } catch (error) {
+      console.error("Error adding member:", error);
+      const errorMessage = error.message || "Failed to add member. User may already be a member or you may not have permission.";
+      alert(errorMessage);
+    }
+  };
+
+  // formatMessageTime is now imported from dateTimeUtils
 
   if (!group) {
     return (
@@ -844,12 +918,17 @@ const GroupChat = ({ group, onClose }) => {
         sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}
       >
         <Box className="flex items-center space-x-3">
+          {/* Back Arrow Button */}
           <IconButton 
             onClick={onClose} 
             sx={{ color: theme.palette.text.secondary }}
+            aria-label="Go back"
           >
-            <MoreVertIcon />
+            <ArrowBackIcon />
           </IconButton>
+          
+          
+          
           <Avatar
             src={group?.groupImage}
             className="w-10 h-10"
@@ -873,8 +952,279 @@ const GroupChat = ({ group, onClose }) => {
             </Typography>
           </Box>
         </Box>
+
+        {/* Right Side Actions - People Icon and Settings Menu */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {/* People/Group Members Icon */}
+          <IconButton 
+            onClick={() => setShowMembersDialog(true)}
+            sx={{ color: theme.palette.text.secondary }}
+            aria-label="View group members"
+          >
+            <PeopleIcon />
+          </IconButton>
+          
+          {/* Settings Menu Button */}
+          <IconButton
+            onClick={(e) => setAnchorEl(e.currentTarget)}
+            sx={{ color: theme.palette.text.secondary }}
+            aria-label="Group options"
+          >
+            <MoreVertIcon />
+          </IconButton>
+        </Box>
         
+        {/* Settings Menu */}
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={() => setAnchorEl(null)}
+        >
+          <MenuItem onClick={() => {
+            setShowMembersDialog(true);
+            setAnchorEl(null);
+          }}>
+            View Members
+          </MenuItem>
+          {isCurrentUserAdmin() && (
+            <MenuItem onClick={() => {
+              setShowEditGroupDialog(true);
+              setAnchorEl(null);
+            }}>
+              Add Members
+            </MenuItem>
+          )}
+          <MenuItem onClick={() => setAnchorEl(null)}>
+            Group Settings
+          </MenuItem>
+          <MenuItem onClick={() => setAnchorEl(null)}>
+            Notifications
+          </MenuItem>
+        </Menu>
       </Box>
+      
+      {/* Group Members Dialog */}
+      <Dialog
+        open={showMembersDialog}
+        onClose={() => setShowMembersDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton 
+              onClick={() => setShowMembersDialog(false)} 
+              size="small"
+              sx={{ mr: -1, ml: -1 }}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+            <Typography variant="h6">Group Members</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {(() => {
+            const members = groupMembers[group?.id] || [];
+            const isLoading = groupsLoading;
+            
+            if (isLoading) {
+              return (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                  <CircularProgress />
+                </Box>
+              );
+            }
+            
+            if (members.length === 0) {
+              return (
+                <Typography sx={{ textAlign: 'center', p: 3, color: theme.palette.text.secondary }}>
+                  No members found
+                </Typography>
+              );
+            }
+            
+            const isAdmin = isCurrentUserAdmin();
+            
+            return (
+              <List>
+                {members
+                  .filter(member => member.status === 'ACTIVE') // Only show active members
+                  .map((member, index) => {
+                    const isMemberAdmin = member.role === 'ADMIN' || member.user?.id === group?.createdBy?.id;
+                    const canRemove = isAdmin && !isMemberAdmin && member.user?.id !== currentUser?.id;
+                    
+                    return (
+                      <React.Fragment key={member.id || member.user?.id || index}>
+                        <ListItem>
+                          <ListItemAvatar>
+                            <Avatar src={member.user?.profileImage || member.user?.profileImage}>
+                              {member.user?.fname?.charAt(0) || 'U'}
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={`${member.user?.fname || member.user?.firstName || ''} ${member.user?.lname || member.user?.lastName || ''}`}
+                            secondary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                                {member.role === 'ADMIN' && (
+                                  <Chip label="Admin" size="small" color="primary" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                )}
+                                {member.role === 'MODERATOR' && (
+                                  <Chip label="Moderator" size="small" color="secondary" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                )}
+                                <Typography variant="caption" color="text.secondary">
+                                  {member.status === 'ACTIVE' ? 'Active' : member.status}
+                                </Typography>
+                              </Box>
+                            }
+                          />
+                          {canRemove && (
+                            <ListItemSecondaryAction>
+                              <IconButton
+                                edge="end"
+                                onClick={() => handleRemoveMember(member.user?.id)}
+                                sx={{ color: theme.palette.error.main }}
+                                aria-label="Remove member"
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </ListItemSecondaryAction>
+                          )}
+                        </ListItem>
+                        {index < members.filter(m => m.status === 'ACTIVE').length - 1 && <Divider />}
+                      </React.Fragment>
+                    );
+                  })}
+              </List>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Group Dialog - Add Members */}
+      <Dialog
+        open={showEditGroupDialog}
+        onClose={() => {
+          setShowEditGroupDialog(false);
+          setSearchQuery("");
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton 
+              onClick={() => {
+                setShowEditGroupDialog(false);
+                setSearchQuery("");
+              }} 
+              size="small"
+              sx={{ mr: -1, ml: -1 }}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+            <Typography variant="h6">Add Members to Group</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              placeholder="Search users to add..."
+              value={searchQuery}
+              onChange={(e) => handleSearchUsers(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: theme.palette.text.secondary }} />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2 }}
+            />
+
+            {searchLoading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                <CircularProgress size={24} />
+              </Box>
+            )}
+
+            {searchQuery && searchResults.length > 0 && (
+              <List>
+                {searchResults
+                  .filter(user => {
+                    // Filter out users who are already members
+                    const members = groupMembers[group?.id] || [];
+                    return !members.some(member => 
+                      member.user?.id === user.id && member.status === 'ACTIVE'
+                    );
+                  })
+                  .filter(user => user.id !== currentUser?.id) // Don't show current user
+                  .map((user) => (
+                    <ListItem key={user.id}>
+                      <ListItemAvatar>
+                        <Avatar src={user.profileImage}>
+                          {user.fname?.charAt(0) || 'U'}{user.lname?.charAt(0) || ''}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={`${user.fname || ''} ${user.lname || ''}`.trim() || user.email}
+                        secondary={user.email}
+                      />
+                      <ListItemSecondaryAction>
+                        <IconButton
+                          edge="end"
+                          onClick={() => handleAddMember(user.id)}
+                          sx={{ color: theme.palette.primary.main }}
+                          aria-label="Add member"
+                        >
+                          <PersonAddIcon />
+                        </IconButton>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  ))}
+                {searchResults
+                  .filter(user => {
+                    const members = groupMembers[group?.id] || [];
+                    return !members.some(member => 
+                      member.user?.id === user.id && member.status === 'ACTIVE'
+                    );
+                  })
+                  .filter(user => user.id !== currentUser?.id).length === 0 && (
+                  <Typography 
+                    sx={{ textAlign: 'center', p: 2, color: theme.palette.text.secondary }}
+                  >
+                    No users found or all users are already members
+                  </Typography>
+                )}
+              </List>
+            )}
+
+            {searchQuery && !searchLoading && searchResults.length === 0 && (
+              <Typography 
+                sx={{ textAlign: 'center', p: 2, color: theme.palette.text.secondary }}
+              >
+                No users found. Try a different search query.
+              </Typography>
+            )}
+
+            {!searchQuery && (
+              <Typography 
+                sx={{ textAlign: 'center', p: 3, color: theme.palette.text.secondary }}
+              >
+                Search for users above to add them to the group
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setShowEditGroupDialog(false);
+            setSearchQuery("");
+          }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Messages */}
       <Box 

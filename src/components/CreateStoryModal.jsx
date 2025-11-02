@@ -24,7 +24,7 @@ import {
   CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
-import { createStory } from '../state/Post/story.action';
+import { createStory, getFollowingStories, getUserStories } from '../state/Post/story.action';
 import { closeCreateStoryModal, openStoryModal } from '../state/Post/storySlice';
 import { uploadToCloudinary } from '../utils/uploadToCloudinary';
 
@@ -145,8 +145,14 @@ const CreateStoryModal = () => {
         setError('');
         setActiveTab(0);
         console.log('Story created and modal will close automatically');
-        // Modal will close automatically due to Redux state update
-        // Story will appear instantly in the stories section with gradient border
+        
+        // Refresh stories to show the new story immediately
+        if (currentUser?.id) {
+          // Fetch user's own stories to update the StoryCircle
+          dispatch(getUserStories(currentUser.id));
+          // Refresh following stories list
+          dispatch(getFollowingStories({ page: 0, size: 10 }));
+        }
       } else {
         console.log('Story creation failed:', result.payload);
         setError(result.payload || 'Failed to create story');

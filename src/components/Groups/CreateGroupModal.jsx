@@ -33,7 +33,7 @@ import {
   Search as SearchIcon,
   PersonAdd as PersonAddIcon,
 } from "@mui/icons-material";
-import { createGroup } from "../../state/Groups/groupActions";
+import { createGroup, getUserGroups } from "../../state/Groups/groupActions";
 import { searchUsers } from "../../state/Auth/authActions";
 
 const CreateGroupModal = ({ open, onClose }) => {
@@ -160,8 +160,26 @@ const CreateGroupModal = ({ open, onClose }) => {
     };
     
     try {
-      await dispatch(createGroup(submitData));
-      onClose();
+      const result = await dispatch(createGroup(submitData));
+      
+      // Check if group was created successfully
+      if (result.type.endsWith('fulfilled')) {
+        // Refresh the group list to ensure UI is updated
+        await dispatch(getUserGroups());
+        
+        // Reset form
+        setFormData({
+          name: "",
+          description: "",
+          groupType: "GENERAL",
+          isPublic: false,
+        });
+        setSelectedMembers([]);
+        setErrors({});
+        
+        // Close modal
+        onClose();
+      }
     } catch (error) {
       console.error("Error creating group:", error);
     }
@@ -182,12 +200,22 @@ const CreateGroupModal = ({ open, onClose }) => {
     >
       <Box 
         className="rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-        sx={{ backgroundColor: theme.palette.background.paper }}
+        sx={{ 
+          backgroundColor: theme.palette.background.paper,
+          width: { xs: '95%', sm: '90%', md: '100%' },
+          maxWidth: { xs: '95vw', sm: '90vw', md: '672px' },
+          maxHeight: { xs: '95vh', sm: '90vh' },
+          margin: { xs: 'auto' }
+        }}
       >
         {/* Header */}
         <Box 
           className="flex items-center justify-between p-6 border-b"
-          sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}
+          sx={{ 
+            borderBottom: `1px solid ${theme.palette.divider}`,
+            px: { xs: 2, sm: 4, md: 6 },
+            py: { xs: 2, sm: 3, md: 4 }
+          }}
         >
           <Typography 
             variant="h5" 
@@ -206,7 +234,7 @@ const CreateGroupModal = ({ open, onClose }) => {
         </Box>
 
         {/* Content */}
-        <Box className="p-6">
+        <Box sx={{ p: { xs: 2, sm: 4, md: 6 } }}>
           {error && (
             <Alert severity="error" className="mb-4">
               {typeof error === 'string' ? error : error.message || 'An error occurred'}

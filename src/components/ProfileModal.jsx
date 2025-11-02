@@ -22,13 +22,15 @@ const style = {
   top: "50%",
   left: "50%",
   transform: "translate(-50%, -50%)",
-  width: 600,
+  width: { xs: "95%", sm: "90%", md: 600 },
+  maxWidth: { xs: "95vw", sm: "90vw", md: 600 },
+  maxHeight: { xs: "90vh", sm: "85vh", md: "80vh" },
   bgcolor: "background.paper",
   boxShadow: 24,
-  p: 2,
+  p: { xs: 1.5, sm: 2 },
   outline: "none",
-  overFlow: "scroll-y",
-  borderRadius: 3,
+  overflow: "auto",
+  borderRadius: { xs: 2, sm: 3 },
 };
 
 function ProfileModal({ open, handleClose }) {

@@ -18,6 +18,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { getPostComments } from "../state/Post/likesComments.action";
 import { likeComment, addComment, deleteComment } from "../state/Post/post.action";
 import { isTempId, canDeleteComment, getCommentDisplayStatus, isNullId } from "../utils/commentUtils";
+import TimeAgo from "./TimeAgo";
 
 const style = {
   position: "absolute",
@@ -54,37 +55,17 @@ function CommentsModal({ open, onClose, postId, totalComments }) {
   // Get comments from Redux state
   const comments = useSelector((state) => {
     const postComments = state.post.postComments?.[postId]?.comments || [];
-    console.log("useSelector - Comments for post", postId, ":", postComments);
     return postComments;
   });
   const commentsLoading = useSelector((state) => state.post.postComments?.[postId]?.loading || false);
   
-  // Debug: Log comments when they change
   useEffect(() => {
-    console.log("Comments loaded for post:", postId, comments);
-    console.log("Comments data structure:", comments.map(c => ({
-      id: c.id,
-      content: c.content,
-      user: c.user,
-      userFname: c.user?.fname,
-      userLname: c.user?.lname,
-      isLiked: c.isLiked,
-      totalLikes: c.totalLikes,
-      createdAt: c.createdAt
-    })));
-    
     // Sync local state with Redux state when comments are loaded
     if (comments.length > 0) {
       const likedCommentIds = new Set();
       const likeCounts = new Map();
       
       comments.forEach(comment => {
-        console.log("Processing comment for sync:", {
-          id: comment.id,
-          isLiked: comment.isLiked,
-          totalLikes: comment.totalLikes
-        });
-        
         if (comment.isLiked === true) {
           likedCommentIds.add(comment.id);
         }
@@ -439,16 +420,6 @@ function CommentsModal({ open, onClose, postId, totalComments }) {
     }
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return "Just now";
-    if (diffInHours < 24) return `${diffInHours}h`;
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d`;
-    return date.toLocaleDateString();
-  };
 
   return (
     <Modal
@@ -542,9 +513,11 @@ function CommentsModal({ open, onClose, postId, totalComments }) {
                             : comment.user?.fname || comment.user?.lname || "Unknown User"
                           }
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {formatDate(comment.createdAt)}
-                        </Typography>
+                        <TimeAgo 
+                          dateInput={comment.createdAt} 
+                          variant="caption"
+                          color="text.secondary"
+                        />
                       </Box>
                     </Box>
 
@@ -553,11 +526,6 @@ function CommentsModal({ open, onClose, postId, totalComments }) {
                       {comment.content || "No content available"}
                     </Typography>
                     
-                    {/* Debug Info - Remove after testing */}
-                    <Typography variant="caption" sx={{ ml: 4, color: "red", fontSize: "10px" }}>
-                      DEBUG: ID={comment.id}, Content="{comment.content}", User="{comment.user?.fname} {comment.user?.lname}"
-                    </Typography>
-
                     {/* Comment Actions */}
                     <Box
                       sx={{
@@ -580,11 +548,6 @@ function CommentsModal({ open, onClose, postId, totalComments }) {
                       </IconButton>
                       <Typography variant="caption" color="text.secondary">
                         {Math.max(0, getCommentLikeCount(comment))} likes
-                        {isCommentLiked(comment) ? " (LIKED)" : " (NOT LIKED)"}
-                        {/* Debug info */}
-                        <span style={{ fontSize: '10px', color: 'red' }}>
-                          [API: {comment.isLiked ? 'L' : 'N'}/{comment.totalLikes}]
-                        </span>
                       </Typography>
                       
                       {/* Delete button - only show for current user's comments and not temp ID */}

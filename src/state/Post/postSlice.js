@@ -263,6 +263,9 @@ const postSlice = createSlice({
         };
       }),
       builder.addCase(getUsersPosts.pending, (state, action) => {
+        // Don't clear posts on pending - causes flicker
+        // New posts will replace old posts when fulfilled
+        // Keep existing posts visible while loading new ones
         return { ...state, loading: true, error: null };
       }),
       builder.addCase(getUsersPosts.fulfilled, (state, action) => {
@@ -414,21 +417,30 @@ const postSlice = createSlice({
       }),
       // User Profile Data
       builder.addCase(getUserProfileData.pending, (state, action) => {
-        return { ...state, loading: true, error: null };
+        // Don't clear existing data on pending - this causes flicker
+        // New data will replace old data when fulfilled
+        // Only set loading state without clearing to prevent UI flicker
+        return { 
+          ...state, 
+          loading: true, 
+          error: null
+          // Keep existing posts, userReels, and userProfile to prevent flicker
+          // New data will replace it when fulfilled - no need to clear here
+        };
       }),
       builder.addCase(getUserProfileData.fulfilled, (state, action) => {
         return {
           ...state,
           loading: false,
           userProfile: action.payload.user,
-          posts: action.payload.posts,
+          posts: Array.isArray(action.payload.posts) ? action.payload.posts : [],
           savedPosts: Array.isArray(action.payload.savedPosts) ? action.payload.savedPosts : [],
-          userReels: action.payload.reels,
-          postsCount: action.payload.postsCount,
-          savedPostsCount: action.payload.savedPostsCount,
-          reelsCount: action.payload.reelsCount,
-          followersCount: action.payload.followersCount,
-          followingCount: action.payload.followingCount,
+          userReels: Array.isArray(action.payload.reels) ? action.payload.reels : [],
+          postsCount: action.payload.postsCount || 0,
+          savedPostsCount: action.payload.savedPostsCount || 0,
+          reelsCount: action.payload.reelsCount || 0,
+          followersCount: action.payload.followersCount || 0,
+          followingCount: action.payload.followingCount || 0,
           error: null,
         };
       }),
@@ -459,7 +471,9 @@ const postSlice = createSlice({
       builder.addCase(getUserReels.pending, (state, action) => {
         const { page } = action.meta.arg;
         if (page === 0) {
-          return { ...state, loading: true, error: null, userReels: [] };
+          // Don't clear on pending - causes flicker, new reels will replace when fulfilled
+          // Only clear if we're explicitly switching users (handled in Profile component)
+          return { ...state, loading: true, error: null };
         } else {
           return { ...state, reelsLoadingMore: true, error: null };
         }

@@ -1,27 +1,14 @@
 import PropTypes from "prop-types";
 import { useSelector } from "react-redux";
 import { useTheme } from "@mui/material/styles";
+import { formatMessageTime } from "../utils/dateTimeUtils";
+import { memo } from "react";
 
-function ChatMessages({text}) {
+const ChatMessages = memo(function ChatMessages({text}) {
   const theme = useTheme();
-  const { auth, message } = useSelector((state) => ({
-    auth: state.auth,
-    message: state.message
-  }));
+  // Only select auth, not message state, to prevent unnecessary re-renders
+  const auth = useSelector((state) => state.auth);
   const isReqUserMessage = auth.user?.id === text.user?.id;
-  
-  // Format message time
-  const formatMessageTime = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now - date) / (1000 * 60 * 60);
-    
-    if (diffInHours < 24) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else {
-      return date.toLocaleDateString();
-    }
-  };
   
   return (
     <div
@@ -68,13 +55,13 @@ function ChatMessages({text}) {
                 : theme.palette.text.secondary
             }}
           >
-            {formatMessageTime(text.createdAt || text.timestamp || text.time)}
+            {formatMessageTime(text.timestamp || text.createdAt || text.time, { hour12: true })}
           </div>
         </div>
       </div>
     </div>
   );
-}
+});
 
 ChatMessages.propTypes = {
   text: PropTypes.object.isRequired,

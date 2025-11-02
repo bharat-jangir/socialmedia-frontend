@@ -121,7 +121,7 @@ const StoryCircle = ({ user, hasStories = false, isOwnStory = false, hasUnviewed
             height: 60,
             borderRadius: '50%',
             background: hasUnviewedStoriesLocal 
-              ? `linear-gradient(45deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 25%, ${theme.palette.primary.dark} 50%, ${theme.palette.secondary.dark} 75%, ${theme.palette.primary.main} 100%)`
+              ? 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)'
               : theme.palette.divider,
             padding: '3px',
             display: 'flex',

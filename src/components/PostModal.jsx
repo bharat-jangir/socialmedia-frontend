@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Modal,
@@ -40,6 +40,8 @@ import {
 } from "../state/Post/post.action";
 import LikesModal from "./LikesModal";
 import CommentsModal from "./CommentsModal";
+import { formatMessageTime, formatDate } from "../utils/dateTimeUtils";
+import TimeAgo from "./TimeAgo";
 
 const style = {
   position: "absolute",
@@ -214,11 +216,29 @@ function PostModal({ open, onClose, post }) {
     }
   };
 
-  // Fetch comments when modal opens
+  // Track last fetched post ID to prevent duplicate calls
+  const lastFetchedPostIdRef = useRef(null);
+  
+  // Fetch comments when modal opens - prevent duplicate calls
   useEffect(() => {
-    if (open && latestPost?.id) {
-      dispatch(fetchComments(latestPost.id));
+    if (!open || !latestPost?.id) {
+      // Reset when modal closes
+      if (!open) {
+        lastFetchedPostIdRef.current = null;
+      }
+      return;
     }
+    
+    const postId = latestPost.id?.toString();
+    
+    // Prevent duplicate calls for the same post
+    if (lastFetchedPostIdRef.current === postId) {
+      return;
+    }
+    
+    // Mark as fetched and dispatch
+    lastFetchedPostIdRef.current = postId;
+    dispatch(fetchComments(latestPost.id));
   }, [open, latestPost?.id, dispatch]);
 
   // Update local comments state when Redux comments change
@@ -771,11 +791,6 @@ function PostModal({ open, onClose, post }) {
                           {comment.content || "No content available"}
                         </Typography>
                         
-                        {/* Debug Info - Remove after testing */}
-                        <Typography variant="caption" sx={{ ml: 4, color: "red", fontSize: "10px" }}>
-                          DEBUG: ID={comment.id || "null"}, Content="{comment.content || "null"}", User="{comment.user?.fname || "null"} {comment.user?.lname || "null"}"
-                        </Typography>
-                        
                         <Box
                           sx={{
                             ml: 4,
@@ -802,14 +817,12 @@ function PostModal({ open, onClose, post }) {
                           </IconButton>
                           <Typography variant="caption">
                             {Math.max(0, getCommentLikeCount(comment.id))}
-                            {/* Debug info */}
-                            <span style={{ fontSize: '10px', color: 'red' }}>
-                              [API: {comment.isLiked ? 'L' : 'N'}/{comment.totalLikes}]
-                            </span>
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {new Date(comment.createdAt).toLocaleDateString()}
-                          </Typography>
+                          <TimeAgo 
+                            dateInput={comment.createdAt} 
+                            variant="caption"
+                            color="text.secondary"
+                          />
                         </Box>
                       </>
                     )}
@@ -885,7 +898,7 @@ function PostModal({ open, onClose, post }) {
                 </Typography>
               </Box>
               <Typography variant="caption" color="text.secondary">
-                {new Date(latestPost.createdAt).toLocaleDateString()}
+                {formatMessageTime(latestPost.createdAt)}
               </Typography>
             </Box>
 

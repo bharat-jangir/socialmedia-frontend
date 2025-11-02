@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   getUserProfileData,
@@ -15,12 +15,14 @@ import {
   Box, 
   Avatar, 
   Typography, 
-  Button
+  Button,
+  CircularProgress
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { PlayArrow, Image, PhotoCamera } from "@mui/icons-material";
 import ProfileModal from "../components/ProfileModal";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary";
+import ProfileSkeleton from "../components/ProfileSkeleton";
 
 const UserProfile = () => {
   const { id } = useParams();
@@ -35,7 +37,39 @@ const UserProfile = () => {
   const userReels = useSelector((state) => state.post.userReels) || [];
   const savedPosts = useSelector((state) => state.post.savedPosts) || [];
   const currentUser = useSelector((state) => state.auth.user);
-  const userProfile = useSelector((state) => state.post.userProfile) || currentUser;
+  const profileLoading = useSelector((state) => state.post.loading);
+  const userProfileFromRedux = useSelector((state) => state.post.userProfile);
+  
+  // Track loading states for posts and reels separately
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [reelsLoading, setReelsLoading] = useState(false);
+  
+  // Only use userProfile if it matches the requested ID OR if we're viewing our own profile
+  // Otherwise, use null to show loading state
+  const isViewingOwnProfile = currentUser?.id?.toString() === id?.toString();
+  
+  // Determine which profile to use - IMPORTANT: Always verify the profile matches the requested ID
+  let userProfile = null;
+  const profileIdMatches = userProfileFromRedux?.id?.toString() === id?.toString();
+  
+  if (isViewingOwnProfile) {
+    // If viewing own profile:
+    // 1. Use Redux data ONLY if it matches current user's ID
+    // 2. Otherwise, use currentUser (always valid for own profile)
+    if (profileIdMatches && userProfileFromRedux) {
+      userProfile = userProfileFromRedux;
+    } else {
+      // Redux has stale data from another user, use currentUser instead
+      userProfile = currentUser;
+    }
+  } else {
+    // If viewing another user's profile, ONLY use Redux data if it matches the requested ID
+    if (profileIdMatches && userProfileFromRedux) {
+      userProfile = userProfileFromRedux;
+    }
+    // Otherwise userProfile stays null (will show skeleton)
+  }
+  
   const postsCount = useSelector((state) => state.post.postsCount) || 0;
   const savedPostsCount = useSelector((state) => state.post.savedPostsCount) || 0;
   const reelsCount = useSelector((state) => state.post.reelsCount) || 0;
@@ -55,19 +89,142 @@ const UserProfile = () => {
   const [isCoverImageLoading, setIsCoverImageLoading] = useState(false);
   const [coverImageError, setCoverImageError] = useState(null);
   const [localCoverImage, setLocalCoverImage] = useState(null);
+  const lastFetchedIdRef = React.useRef(null);
+  const isFetchingRef = React.useRef(false);
+  const initialLoadRef = React.useRef(true); // Track if this is the initial load for this profile
 
-  // Fetch data only on id change
+  // Fetch data only on id change - prevent multiple calls
   useEffect(() => {
     console.log("Profile ID:", id, "Type:", typeof id);
-    if (id && id !== "undefined" && id.trim() !== "") {
-      console.log("Dispatching API calls for ID:", id);
-      dispatch(getUserProfileData(id));
-      dispatch(getUsersPosts(id));
-      dispatch(getUserReels({userId: id}));
-    } else {
+    console.log("Current Redux userProfile:", userProfileFromRedux?.id, "Requested ID:", id);
+    
+    // Cleanup function to reset fetching state if ID changes before fetch completes
+    let isMounted = true;
+    
+    if (!id || id === "undefined" || id.trim() === "") {
       console.log("ID is invalid, not dispatching API calls");
+      lastFetchedIdRef.current = null;
+      isFetchingRef.current = false;
+      return;
     }
-  }, [id, dispatch]);
+    
+    const idString = id.toString();
+    
+    // Check if Redux profile matches the requested ID
+    const reduxProfileMatches = userProfileFromRedux?.id?.toString() === idString;
+    
+    // If Redux has data for a different user, force fetch (clear the ref)
+    if (userProfileFromRedux && !reduxProfileMatches) {
+      console.log("Redux has stale data for different user, forcing fetch for:", idString);
+      lastFetchedIdRef.current = null; // Force fetch by clearing the ref
+      initialLoadRef.current = true; // Treat as initial load when switching users
+    }
+    
+    // Prevent duplicate calls for the same ID
+    if (lastFetchedIdRef.current === idString && reduxProfileMatches) {
+      console.log("Already fetched this profile and data matches, skipping...");
+      initialLoadRef.current = false; // Not initial load anymore
+      return;
+    }
+    
+    // Prevent concurrent requests
+    if (isFetchingRef.current) {
+      console.log("Already fetching, skipping...");
+      return;
+    }
+    
+    // Mark as fetching and update last fetched ID
+    const isInitialLoad = initialLoadRef.current || !reduxProfileMatches;
+    console.log("Dispatching API calls for ID:", id, "Initial load:", isInitialLoad);
+    if (!isInitialLoad) {
+      console.log("Updating existing profile data, will not show skeleton");
+    }
+    isFetchingRef.current = true;
+    lastFetchedIdRef.current = idString;
+    
+    // Set loading states for posts and reels
+    setPostsLoading(true);
+    setReelsLoading(true);
+    
+    // Fetch all data in parallel - these will replace Redux state
+    // getUserProfileData sets posts, userReels, and userProfile
+    // getUsersPosts and getUserReels are called separately to ensure fresh data
+    Promise.all([
+      dispatch(getUserProfileData(id)),
+      dispatch(getUsersPosts(id)),
+      dispatch(getUserReels({userId: id, page: 0})) // Always start from page 0 when switching profiles
+    ]).finally(() => {
+      // Only reset fetching state if component is still mounted and ID hasn't changed
+      if (isMounted && lastFetchedIdRef.current === idString) {
+        isFetchingRef.current = false;
+        initialLoadRef.current = false; // Initial load complete
+      }
+      // Always reset loading states after a delay to prevent stuck loader
+      setTimeout(() => {
+        if (isMounted && lastFetchedIdRef.current === idString) {
+          setPostsLoading(false);
+          setReelsLoading(false);
+        }
+      }, 100);
+    });
+    
+    // Cleanup: reset fetching state if component unmounts or ID changes
+    return () => {
+      isMounted = false;
+      // Only reset if the ID actually changed (not just unmount)
+      if (lastFetchedIdRef.current !== idString) {
+        isFetchingRef.current = false;
+      }
+    };
+  }, [id, dispatch, userProfileFromRedux?.id]);
+
+  // Reset loading states when data arrives in Redux or loading completes
+  useEffect(() => {
+    const currentIdString = id?.toString();
+    const isCurrentProfile = lastFetchedIdRef.current === currentIdString;
+    
+    // Reset posts loading when:
+    // 1. Not loading AND we have posts data (even if empty array is fine - means API responded)
+    // 2. OR loading is false and we're on the current profile
+    if (isCurrentProfile) {
+      // Check if posts have loaded (even if empty)
+      const postsHaveLoaded = Array.isArray(userPosts) && !profileLoading;
+      // Check if reels have loaded (even if empty)
+      const reelsHaveLoaded = Array.isArray(userReels) && !profileLoading;
+      
+      if (postsHaveLoaded) {
+        console.log("Posts have loaded, resetting posts loading state", { postsCount: userPosts.length });
+        setPostsLoading(false);
+      }
+      
+      if (reelsHaveLoaded) {
+        console.log("Reels have loaded, resetting reels loading state", { reelsCount: userReels.length });
+        setReelsLoading(false);
+      }
+    }
+  }, [profileLoading, id, userPosts, userReels]);
+  
+  // Reset loading states when profile ID changes (switching profiles)
+  useEffect(() => {
+    return () => {
+      // Reset loading when component unmounts or ID changes
+      setPostsLoading(false);
+      setReelsLoading(false);
+    };
+  }, [id]);
+  
+  // Fallback: Reset loading states after 5 seconds to prevent infinite loader
+  useEffect(() => {
+    if (postsLoading || reelsLoading) {
+      const timeoutId = setTimeout(() => {
+        console.log("Loading timeout reached, resetting loading states");
+        setPostsLoading(false);
+        setReelsLoading(false);
+      }, 5000); // 5 second fallback
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [postsLoading, reelsLoading]);
 
   // Fetch saved posts only when saved tab is selected and user is viewing their own profile
   useEffect(() => {
@@ -75,6 +232,15 @@ const UserProfile = () => {
       dispatch(getSavedPosts(currentUser?.id));
     }
   }, [value, id, currentUser?.id, dispatch]);
+  
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (modalOpenTimeoutRef.current) {
+        clearTimeout(modalOpenTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Check if current user is following this profile user
   useEffect(() => {
@@ -96,32 +262,95 @@ const UserProfile = () => {
     }
   }, [userProfile?.coverImage]);
 
-  // Handlers
-  const handlePostClick = (post) => {
+  // Track last clicked item to prevent duplicate opens
+  const lastClickedItemRef = useRef(null);
+  const isOpeningModalRef = useRef(false);
+  const modalOpenTimeoutRef = useRef(null);
+  
+  // Handle reel click - defined first to avoid dependency issues
+  const handleReelClick = useCallback((reel) => {
+    // Prevent rapid clicks
+    if (isOpeningModalRef.current) {
+      console.log("Modal already opening, ignoring click");
+      return;
+    }
+    
+    // Prevent duplicate clicks on the same reel
+    const reelId = reel?.id?.toString();
+    if (lastClickedItemRef.current === reelId && isReelModalOpen) {
+      console.log("Reel modal already open for this reel, ignoring click");
+      return;
+    }
+    
+    // Clear any existing timeout
+    if (modalOpenTimeoutRef.current) {
+      clearTimeout(modalOpenTimeoutRef.current);
+    }
+    
+    // Handle reels in Reels tab
+    isOpeningModalRef.current = true;
+    lastClickedItemRef.current = reelId;
+    setSelectedReel(reel);
+    setIsReelModalOpen(true);
+    
+    // Reset flag after a short delay
+    modalOpenTimeoutRef.current = setTimeout(() => {
+      isOpeningModalRef.current = false;
+      modalOpenTimeoutRef.current = null;
+    }, 300);
+  }, [isReelModalOpen]);
+  
+  // Handlers with debounce and duplicate prevention
+  const handlePostClick = useCallback((post) => {
+    // Prevent rapid clicks
+    if (isOpeningModalRef.current) {
+      console.log("Modal already opening, ignoring click");
+      return;
+    }
+    
     // Only handle posts (not reels) in Posts tab
     if(post.type === "reel"){
       handleReelClick(post);
-      } else {
-      setSelectedPost(post);
-      setIsPostModalOpen(true);
+      return;
     }
-  };
+    
+    // Prevent duplicate clicks on the same post
+    const postId = post?.id?.toString();
+    if (lastClickedItemRef.current === postId && isPostModalOpen) {
+      console.log("Post modal already open for this post, ignoring click");
+      return;
+    }
+    
+    // Clear any existing timeout
+    if (modalOpenTimeoutRef.current) {
+      clearTimeout(modalOpenTimeoutRef.current);
+    }
+    
+    isOpeningModalRef.current = true;
+    lastClickedItemRef.current = postId;
+    setSelectedPost(post);
+    setIsPostModalOpen(true);
+    
+    // Reset flag after a short delay
+    modalOpenTimeoutRef.current = setTimeout(() => {
+      isOpeningModalRef.current = false;
+      modalOpenTimeoutRef.current = null;
+    }, 300);
+  }, [isPostModalOpen, handleReelClick]);
 
-  const handleReelClick = (reel) => {
-    // Handle reels in Reels tab
-    setSelectedReel(reel);
-    setIsReelModalOpen(true);
-  };
-
-  const handleClosePostModal = () => {
+  const handleClosePostModal = useCallback(() => {
     setIsPostModalOpen(false);
     setSelectedPost(null);
-  };
+    lastClickedItemRef.current = null;
+    isOpeningModalRef.current = false;
+  }, []);
 
-  const handleCloseReelModal = () => {
+  const handleCloseReelModal = useCallback(() => {
     setIsReelModalOpen(false);
     setSelectedReel(null);
-  };
+    lastClickedItemRef.current = null;
+    isOpeningModalRef.current = false;
+  }, []);
 
   const handleOpenEditModal = () => {
     setIsEditModalOpen(true);
@@ -222,14 +451,46 @@ const UserProfile = () => {
     }
   };
 
-  // Get data for each tab
-  const getPostsData = () => {
-    return Array.isArray(userPosts) ? userPosts : [];
-  };
+  // Get data for each tab - Filter by user ID to ensure only current profile's data is shown
+  const getPostsData = useMemo(() => {
+    if (!id || !userPosts || !Array.isArray(userPosts)) {
+      console.log("getPostsData: No ID or invalid userPosts", { id, userPostsLength: userPosts?.length });
+      return [];
+    }
+    const idString = id.toString();
+    // Filter posts to only include those belonging to the current profile
+    const filtered = userPosts.filter(post => {
+      // Check if post belongs to current user profile
+      const postUserId = post.user?.id?.toString() || post.userId?.toString();
+      const matches = postUserId === idString;
+      if (!matches && postUserId) {
+        console.log("Post filtered out:", { postId: post.id, postUserId, requestedId: idString });
+      }
+      return matches;
+    });
+    console.log("getPostsData filtered result:", { total: userPosts.length, filtered: filtered.length, idString });
+    return filtered;
+  }, [userPosts, id]);
 
-  const getReelsData = () => {
-    return Array.isArray(userReels) ? userReels : [];
-  };
+  const getReelsData = useMemo(() => {
+    if (!id || !userReels || !Array.isArray(userReels)) {
+      console.log("getReelsData: No ID or invalid userReels", { id, userReelsLength: userReels?.length });
+      return [];
+    }
+    const idString = id.toString();
+    // Filter reels to only include those belonging to the current profile
+    const filtered = userReels.filter(reel => {
+      // Check if reel belongs to current user profile
+      const reelUserId = reel.user?.id?.toString() || reel.userId?.toString();
+      const matches = reelUserId === idString;
+      if (!matches && reelUserId) {
+        console.log("Reel filtered out:", { reelId: reel.id, reelUserId, requestedId: idString });
+      }
+      return matches;
+    });
+    console.log("getReelsData filtered result:", { total: userReels.length, filtered: filtered.length, idString });
+    return filtered;
+  }, [userReels, id]);
 
   const getSavedData = () => {
     console.log('Profile - getSavedData - savedPosts:', savedPosts);
@@ -313,6 +574,32 @@ const UserProfile = () => {
       </Typography>
     </Box>
   );
+
+  // Show skeleton only on initial load to prevent flickering
+  // Don't show skeleton if we already have valid profile data (even if loading more data)
+  const hasValidProfile = userProfile && userProfile?.id?.toString() === id?.toString();
+  const isInitialProfileLoad = initialLoadRef.current && !hasValidProfile;
+  
+  // Only show skeleton if:
+  // 1. This is the initial load AND we don't have valid profile data AND we're loading
+  // 2. OR we have no profile at all and we have a valid ID to fetch (initial state)
+  const shouldShowSkeleton = (isInitialProfileLoad && profileLoading) || 
+                              (!userProfile && !lastFetchedIdRef.current && id && id !== "undefined" && id.trim() !== "");
+  
+  if (shouldShowSkeleton) {
+    return <ProfileSkeleton />;
+  }
+  
+  // If we have no profile and no valid ID, show error state instead of skeleton
+  if (!userProfile && (!id || id === "undefined" || id.trim() === "")) {
+    return (
+      <Box className="flex flex-col items-center justify-center min-h-screen">
+        <Typography variant="h6" sx={{ color: theme.palette.text.secondary }}>
+          Invalid profile ID
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box 
@@ -605,8 +892,18 @@ const UserProfile = () => {
       <Box className="w-full max-w-4xl mt-4">
         {value === "post" ? (
           <Box className="grid grid-cols-3 gap-1">
-            {getPostsData().length > 0 ? (
-              getPostsData().map((post, index) => renderMediaItem(post, index, handlePostClick))
+            {postsLoading ? (
+              <Box 
+                className="col-span-3 flex items-center justify-center py-20"
+                sx={{ minHeight: '300px' }}
+              >
+                <CircularProgress 
+                  size={48} 
+                  sx={{ color: theme.palette.primary.main }} 
+                />
+              </Box>
+            ) : getPostsData && getPostsData.length > 0 ? (
+              getPostsData.map((post, index) => renderMediaItem(post, index, handlePostClick))
             ) : (
               renderEmptyState(
                 "No content available",
@@ -616,8 +913,18 @@ const UserProfile = () => {
           </Box>
             ) : value === "reels" ? (
           <Box className="grid grid-cols-3 gap-1">
-            {getReelsData().length > 0 ? (
-              getReelsData().map((reel, index) => renderMediaItem(reel, index, handleReelClick))
+            {reelsLoading ? (
+              <Box 
+                className="col-span-3 flex items-center justify-center py-20"
+                sx={{ minHeight: '300px' }}
+              >
+                <CircularProgress 
+                  size={48} 
+                  sx={{ color: theme.palette.primary.main }} 
+                />
+              </Box>
+            ) : getReelsData && getReelsData.length > 0 ? (
+              getReelsData.map((reel, index) => renderMediaItem(reel, index, handleReelClick))
             ) : (
               renderEmptyState(
                 "No reels available",
@@ -646,22 +953,18 @@ const UserProfile = () => {
       </Box>
 
       {/* Post Modal */}
-      {isPostModalOpen && (
-        <PostModal
-          post={selectedPost}
-          open={isPostModalOpen}
-          onClose={handleClosePostModal}
-        />
-      )}
+      <PostModal
+        post={selectedPost}
+        open={isPostModalOpen}
+        onClose={handleClosePostModal}
+      />
 
       {/* Reel Modal */}
-      {isReelModalOpen && (
-        <ReelModal
-          reel={selectedReel}
-          open={isReelModalOpen}
-          onClose={handleCloseReelModal}
-        />
-      )}
+      <ReelModal
+        reel={selectedReel}
+        open={isReelModalOpen}
+        onClose={handleCloseReelModal}
+      />
 
       {/* Edit Profile Modal */}
       <ProfileModal 

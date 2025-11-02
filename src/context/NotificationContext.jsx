@@ -120,11 +120,7 @@ export const NotificationProvider = ({ children }) => {
   // Mark all notifications as read
   const markAllNotificationsAsRead = useCallback(async () => {
     try {
-      // Send via WebSocket first
-      const WebSocketService = (await import('../utils/sockets')).default;
-      WebSocketService.markAllNotificationsAsRead();
-      
-      // Also update via API
+      // Update via API first
       await markAllAsRead();
       
       // Update local state
@@ -140,6 +136,15 @@ export const NotificationProvider = ({ children }) => {
       setUnreadCount(0);
     } catch (err) {
       console.error('Error marking all notifications as read:', err);
+      // Even if API fails, update local state for better UX
+      setNotifications(prev => 
+        prev.map(notification => ({
+          ...notification,
+          isRead: true,
+          readAt: new Date().toISOString()
+        }))
+      );
+      setUnreadCount(0);
     }
   }, []);
 

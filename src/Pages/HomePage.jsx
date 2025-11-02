@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MenuIcon from "@mui/icons-material/Menu";
+import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import Sidebar from "../components/Sidebar";
 import HomeRight from "../components/HomeRight";
 import StoriesSection from "../components/StoriesSection";
@@ -141,10 +142,23 @@ function HomePage() {
           >
             ChatterBox
           </Typography>
-          <IconButton color="inherit">
-            <Typography variant="body2">
-              {auth.user?.fname || "User"}
-            </Typography>
+          <IconButton 
+            color="inherit"
+            onClick={() => navigate("/message")}
+            sx={{ 
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)'
+              },
+              padding: '8px'
+            }}
+          >
+            <SendRoundedIcon 
+              sx={{ 
+                fontSize: '26px',
+                color: 'inherit',
+                transform: 'rotate(-30deg)' // Instagram-style rotation
+              }} 
+            />
           </IconButton>
         </Toolbar>
       </AppBar>
@@ -299,13 +313,44 @@ function HomePage() {
           width: '100%',
           maxWidth: '100vw',
           boxSizing: 'border-box',
+          '& .MuiBottomNavigationAction-root': {
+            minWidth: { xs: '50px', sm: '80px' },
+            maxWidth: { xs: 'none', sm: 'none' },
+            padding: { xs: '6px 2px', sm: '8px 12px' },
+          }
         }}
       >
-        {navigationMenu.slice(0, 4).map((item, index) => (
+        {navigationMenu.map((item, index) => (
           <BottomNavigationAction
             key={item.title}
             label={item.title}
             icon={item.icon}
+            sx={{
+              minWidth: { xs: '50px', sm: '80px' },
+              padding: { xs: '6px 2px', sm: '8px 12px' },
+              fontSize: { xs: '0.65rem', sm: '0.75rem' },
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              '& .MuiBottomNavigationAction-icon': {
+                fontSize: { xs: '20px', sm: '24px' },
+                mb: 0.25
+              },
+              '& .MuiBottomNavigationAction-label': {
+                fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                mt: 0.5,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '100%'
+              },
+              '&.Mui-selected': {
+                '& .MuiBottomNavigationAction-label': {
+                  fontSize: { xs: '0.65rem', sm: '0.75rem' }
+                }
+              }
+            }}
           />
         ))}
       </BottomNavigation>

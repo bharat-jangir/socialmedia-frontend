@@ -6,6 +6,7 @@ import {
 import { getUserGroups, searchGroups } from "../../state/Groups/groupActions";
 import GroupCard from "./GroupCard";
 import GroupDetailsModal from "./GroupDetailsModal";
+import EditGroupModal from "./EditGroupModal";
 
 const GroupList = ({ onGroupSelect }) => {
   const dispatch = useDispatch();
@@ -16,6 +17,8 @@ const GroupList = ({ onGroupSelect }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [editGroupModalOpen, setEditGroupModalOpen] = useState(false);
+  const [groupToEdit, setGroupToEdit] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
 
   // Load user groups on component mount
@@ -49,6 +52,12 @@ const GroupList = ({ onGroupSelect }) => {
       setSelectedGroup(group);
       setIsDetailsModalOpen(true);
     }
+  };
+
+  // Handle edit group
+  const handleEditGroup = (group) => {
+    setGroupToEdit(group);
+    setEditGroupModalOpen(true);
   };
 
 
@@ -126,6 +135,7 @@ const GroupList = ({ onGroupSelect }) => {
                     key={group.id}
                     group={group}
                     onClick={() => handleGroupClick(group)}
+                    onEditGroup={handleEditGroup}
                     currentUser={currentUser}
                   />
                 ))}
@@ -140,6 +150,16 @@ const GroupList = ({ onGroupSelect }) => {
         open={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
         group={selectedGroup}
+      />
+
+      {/* Edit Group Modal */}
+      <EditGroupModal
+        open={editGroupModalOpen}
+        onClose={() => {
+          setEditGroupModalOpen(false);
+          setGroupToEdit(null);
+        }}
+        group={groupToEdit}
       />
     </div>
   );

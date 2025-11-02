@@ -1,6 +1,10 @@
 import axios from "axios";
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://socialmedia-backend-o9n1.onrender.com";
+// Production backend URL (fallback if environment variable is not set)
+const PRODUCTION_API_URL = "https://socialmedia-backend-o9n1.onrender.com";
+
+// API base URL from environment variable or fallback to production URL
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || PRODUCTION_API_URL;
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

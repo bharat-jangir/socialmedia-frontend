@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Modal,
@@ -28,6 +28,8 @@ import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import { formatMessageTime } from "../utils/dateTimeUtils";
+import TimeAgo from "./TimeAgo";
 import DeleteIcon from "@mui/icons-material/Delete";
 import {
   addReelComment,
@@ -161,35 +163,11 @@ function ReelModal({ open, onClose, reel }) {
     }
   }, [latestReel, currentUser?.id, savedPostIds]);
 
-  // Load comments when modal opens
-  useEffect(() => {
-    if (open && latestReel?.id) {
-      setLocalComments(latestReel.recentComments || []);
-      fetchReelComments();
-    }
-  }, [open, latestReel?.id, latestReel?.recentComments]);
-
-  // Sync local comment like state with Redux state
-  useEffect(() => {
-    if (localComments.length > 0) {
-      // Reset local state when comments change
-      setLocalLikedComments(new Set());
-      setLocalLikeCounts(new Map());
-      setLocalInteractedComments(new Set());
-    }
-  }, [localComments]);
-
-  // Sync comment like state with Redux state updates
-  useEffect(() => {
-    if (reelComments[latestReel?.id]?.comments) {
-      const updatedComments = reelComments[latestReel.id].comments;
-      setLocalComments(updatedComments);
-      console.log('ReelModal - Synced comments from Redux:', updatedComments);
-    }
-  }, [reelComments, latestReel?.id]);
-
-  // Fetch reel comments
-  const fetchReelComments = async () => {
+  // Track last fetched reel ID to prevent duplicate calls
+  const lastFetchedReelIdRef = useRef(null);
+  
+  // Fetch reel comments - memoized to prevent recreation
+  const fetchReelComments = useCallback(async () => {
     if (!latestReel?.id) return;
     
     setLoadingComments(true);
@@ -210,7 +188,57 @@ function ReelModal({ open, onClose, reel }) {
     } finally {
       setLoadingComments(false);
     }
-  };
+  }, [latestReel?.id, dispatch]);
+  
+  // Load comments when modal opens - prevent duplicate calls
+  useEffect(() => {
+    if (!open || !latestReel?.id) {
+      // Reset when modal closes
+      if (!open) {
+        lastFetchedReelIdRef.current = null;
+      }
+      return;
+    }
+    
+    const reelId = latestReel.id?.toString();
+    
+    // Prevent duplicate calls for the same reel
+    if (lastFetchedReelIdRef.current === reelId) {
+      // Still update local comments from recentComments if available
+      if (latestReel.recentComments) {
+        setLocalComments(latestReel.recentComments);
+      }
+      return;
+    }
+    
+    // Mark as fetched
+    lastFetchedReelIdRef.current = reelId;
+    
+    // Set initial comments from recentComments if available
+    setLocalComments(latestReel.recentComments || []);
+    
+    // Fetch comments
+    fetchReelComments();
+  }, [open, latestReel?.id, fetchReelComments]);
+
+  // Sync local comment like state with Redux state
+  useEffect(() => {
+    if (localComments.length > 0) {
+      // Reset local state when comments change
+      setLocalLikedComments(new Set());
+      setLocalLikeCounts(new Map());
+      setLocalInteractedComments(new Set());
+    }
+  }, [localComments]);
+
+  // Sync comment like state with Redux state updates
+  useEffect(() => {
+    if (reelComments[latestReel?.id]?.comments) {
+      const updatedComments = reelComments[latestReel.id].comments;
+      setLocalComments(updatedComments);
+      console.log('ReelModal - Synced comments from Redux:', updatedComments);
+    }
+  }, [reelComments, latestReel?.id]);
 
   // Helper function to extract image URL
   const extractImageUrl = (imageString) => {
@@ -717,9 +745,11 @@ function ReelModal({ open, onClose, reel }) {
                             <Typography variant="subtitle2" fontWeight="bold" sx={{ fontSize: "0.875rem" }}>
                               {comment.user?.fname} {comment.user?.lname}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {new Date(comment.createdAt).toLocaleDateString()}
-                            </Typography>
+                            <TimeAgo 
+                              dateInput={comment.createdAt} 
+                              variant="caption"
+                              color="text.secondary"
+                            />
                           </Box>
                           
                           {editingComment?.id === comment.id ? (
@@ -822,7 +852,7 @@ function ReelModal({ open, onClose, reel }) {
                 </Typography>
                 
                 <Typography variant="caption" color="text.secondary">
-                  {new Date(latestReel.createdAt).toLocaleDateString()}
+                  {formatMessageTime(latestReel.createdAt)}
                 </Typography>
               </Box>
 

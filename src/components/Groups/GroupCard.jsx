@@ -25,7 +25,7 @@ import {
 import { useDispatch } from "react-redux";
 import { deleteGroup } from "../../state/Groups/groupActions";
 
-const GroupCard = ({ group, onClick, currentUser }) => {
+const GroupCard = ({ group, onClick, onEditGroup, currentUser }) => {
   const dispatch = useDispatch();
   const [anchorEl, setAnchorEl] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -62,8 +62,10 @@ const GroupCard = ({ group, onClick, currentUser }) => {
   };
 
   const handleEditGroup = () => {
-    // Navigate to group settings
     handleMenuClose();
+    if (onEditGroup) {
+      onEditGroup(group);
+    }
   };
 
   return (

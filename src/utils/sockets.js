@@ -25,6 +25,8 @@ const WebSocketService = {
   notificationSubscription: null,
   roomEventsSubscription: null,
   groupChatSubscription: null,
+  directChatSubscription: null,
+  directChatSubscriptionTopic: null,
   isInitializing: false,
   userId: null,
   audioEnabled: false,
@@ -110,30 +112,18 @@ const WebSocketService = {
         console.log('🔌 Initializing WebSocket connection...');
 
         // Get WebSocket URL from API base URL
-        // IMPORTANT: When page is loaded over HTTPS, we MUST use HTTPS/WSS, not HTTP/WS
+        // SockJS automatically handles protocol upgrade (HTTP->HTTPS, WS->WSS)
         const getWebSocketUrl = () => {
-          const isHttps = window.location.protocol === 'https:';
-          
-          // If API_BASE_URL is provided, ensure it uses HTTPS if page is HTTPS
-          if (API_BASE_URL) {
-            let wsUrl = API_BASE_URL;
-            // Force HTTPS if page is loaded over HTTPS
-            if (isHttps && wsUrl.startsWith('http://')) {
-              wsUrl = wsUrl.replace('http://', 'https://');
-            }
-            return `${wsUrl}/ws`;
+          if (!API_BASE_URL) {
+            throw new Error('API_BASE_URL is not configured');
           }
           
-          // Fallback for local development
-          const protocol = isHttps ? 'https:' : 'http:';
-          const host = window.location.hostname;
-          const port = window.location.port || (isHttps ? '443' : '5000');
-          return `${protocol}//${host}${port !== '443' && port !== '80' ? ':' + port : ''}/ws`;
+          // Use API_BASE_URL directly (already includes fallback to production URL)
+          // SockJS will automatically upgrade to WSS if page is loaded over HTTPS
+          return `${API_BASE_URL}/ws`;
         };
 
         const wsUrl = getWebSocketUrl();
-        console.log('🔌 WebSocket URL:', wsUrl);
-        console.log('🔌 Current page protocol:', window.location.protocol);
         
         // Create SockJS connection
         // SockJS automatically uses secure transport (wss://) if page is loaded over HTTPS
@@ -310,10 +300,17 @@ const WebSocketService = {
 
   // Subscribe to topic
   subscribeToTopic: (topic, callback) => {
-    if (WebSocketService.stompClient && WebSocketService.isConnected) {
-      return WebSocketService.stompClient.subscribe(topic, callback);
+    if (!WebSocketService.stompClient || !WebSocketService.isConnected) {
+      console.error('❌ Cannot subscribe: WebSocket not connected');
+      return null;
     }
-    return null;
+    
+    try {
+      return WebSocketService.stompClient.subscribe(topic, callback);
+    } catch (error) {
+      console.error('❌ Error creating subscription:', error);
+      return null;
+    }
   },
 
   // Send message
@@ -328,7 +325,7 @@ const WebSocketService = {
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       WebSocketService.stompClient.send(destination, headers, JSON.stringify(message));
       return true;
-          } catch (error) {
+    } catch (error) {
       console.error('❌ Error sending message:', error);
       return false;
     }
@@ -425,6 +422,16 @@ const WebSocketService = {
     if (WebSocketService.groupChatSubscription) {
       WebSocketService.groupChatSubscription.unsubscribe();
       WebSocketService.groupChatSubscription = null;
+    }
+    
+    // Unsubscribe from direct chat
+    if (WebSocketService.directChatSubscription) {
+      WebSocketService.directChatSubscription.unsubscribe();
+      WebSocketService.directChatSubscription = null;
+    }
+    if (WebSocketService.directChatSubscriptionTopic) {
+      WebSocketService.directChatSubscriptionTopic.unsubscribe();
+      WebSocketService.directChatSubscriptionTopic = null;
     }
     
     // Disconnect WebSocket

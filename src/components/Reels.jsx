@@ -13,6 +13,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckIcon from '@mui/icons-material/Check';
 import CancelIcon from '@mui/icons-material/Cancel';
+import { formatMessageTime } from '../utils/dateTimeUtils';
+import TimeAgo from './TimeAgo';
 
 function Reels() {
   const dispatch = useDispatch();
@@ -876,11 +878,6 @@ function Reels() {
                                       {comment.content || comment.text || 'No content'}
                                     </Typography>
                                     
-                                    {/* Debug Info - Remove after testing */}
-                                    <Typography variant="caption" sx={{ color: "red", fontSize: "10px" }}>
-                                      DEBUG: ID={comment.id}, Content="{comment.content}", User="{comment.user?.fname} {comment.user?.lname}"
-                                    </Typography>
-                                    
                                     {/* Comment Like Button */}
                                     <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                                       <IconButton
@@ -906,9 +903,17 @@ function Reels() {
                               </Box>
                             }
                             secondary={
-                              <Typography variant="caption" color="text.secondary">
-                                {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : 'Just now'}
-                              </Typography>
+                              comment.createdAt ? (
+                                <TimeAgo 
+                                  dateInput={comment.createdAt} 
+                                  variant="caption"
+                                  color="text.secondary"
+                                />
+                              ) : (
+                                <Typography variant="caption" color="text.secondary">
+                                  Just now
+                                </Typography>
+                              )
                             }
                           />
                           {comment.user?.id === user?.id && editingComment !== comment.id && (

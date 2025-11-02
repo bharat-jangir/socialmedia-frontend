@@ -50,8 +50,8 @@ const NotificationBell = () => {
   const popperRef = useRef(null);
 
   const handleClick = (event) => {
-    setAnchorEl(event.currentTarget);
-    setOpen(!open);
+    // Navigate to notifications page instead of opening dropdown
+    navigate('/notifications');
   };
 
   const handleClose = () => {

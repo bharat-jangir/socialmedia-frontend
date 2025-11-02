@@ -137,12 +137,20 @@ function Notifications() {
           >
             Notifications
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: { xs: 0.5, sm: 1 }, flexWrap: 'wrap' }}>
             {unreadCount > 0 && (
               <Button
                 color="primary"
                 onClick={handleMarkAllAsRead}
-                sx={{ textTransform: 'none', fontWeight: 'bold' }}
+                size="small"
+                sx={{ 
+                  textTransform: 'none', 
+                  fontWeight: 'bold',
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  px: { xs: 1, sm: 2 },
+                  py: { xs: 0.5, sm: 0.75 },
+                  minWidth: { xs: 'auto', sm: '120px' }
+                }}
               >
                 Mark all read
               </Button>
@@ -151,10 +159,23 @@ function Notifications() {
               <Button
                 color="error"
                 onClick={handleDeleteAllNotifications}
-                sx={{ textTransform: 'none', fontWeight: 'bold' }}
-                startIcon={<Delete />}
+                size="small"
+                sx={{ 
+                  textTransform: 'none', 
+                  fontWeight: 'bold',
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  px: { xs: 1, sm: 2 },
+                  py: { xs: 0.5, sm: 0.75 },
+                  minWidth: { xs: 'auto', sm: '120px' }
+                }}
+                startIcon={<Delete sx={{ fontSize: { xs: '16px', sm: '20px' } }} />}
               >
-                Delete All
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                  Delete All
+                </Box>
+                <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                  Delete
+                </Box>
               </Button>
             )}
           </Box>

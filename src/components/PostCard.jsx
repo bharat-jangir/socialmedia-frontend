@@ -16,6 +16,7 @@ import {
   DialogActions,
   Button,
   CircularProgress,
+  Box,
 } from "@mui/material";
 import { red } from "@mui/material/colors";
 import IconButton from "@mui/material/IconButton";
@@ -220,8 +221,32 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
   }, [dispatch, latestPost?.id, isDeleting]);
 
   return (
-    <Card className="">
+    <Card 
+      className=""
+      sx={{
+        width: '100%',
+        maxWidth: { xs: '100%', sm: '100%', md: '614px' },
+        margin: { xs: '0 auto', sm: '0 auto' },
+        mb: { xs: 2, sm: 3 },
+        boxShadow: { xs: 'none', sm: '0 1px 3px rgba(0,0,0,0.12)' },
+        border: { xs: 'none', sm: 'none' },
+        borderRadius: { xs: 0, sm: 2 },
+      }}
+    >
       <CardHeader
+        sx={{
+          px: { xs: 1.5, sm: 2 },
+          py: { xs: 1, sm: 1.5 },
+          '& .MuiCardHeader-avatar': {
+            mr: { xs: 1, sm: 1.5 }
+          },
+          '& .MuiCardHeader-title': {
+            fontSize: { xs: '0.875rem', sm: '1rem' }
+          },
+          '& .MuiCardHeader-subheader': {
+            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+          }
+        }}
         avatar={
           <Avatar
             src={latestPost?.user?.profileImage}
@@ -255,10 +280,15 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
       />
 
       {latestPost.image && (
-        <div 
-          className="relative w-full cursor-pointer" 
-          style={{ aspectRatio: "16/9" }}
+        <Box
+          className="relative w-full cursor-pointer"
           onClick={() => onPostClick && onPostClick(latestPost)}
+          sx={{
+            width: '100%',
+            aspectRatio: "16/9",
+            maxHeight: { xs: '70vh', sm: 'none' },
+            overflow: 'hidden'
+          }}
         >
           <CardMedia
             component="img"
@@ -267,18 +297,24 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
             className="w-full h-full object-cover"
             sx={{
               width: "100%",
-              height: "100%",
+              height: { xs: "auto", sm: "100%" },
+              maxHeight: { xs: "70vh", sm: "none" },
               objectFit: "cover",
             }}
           />
-        </div>
+        </Box>
       )}
 
       {latestPost.video && (
-        <div 
-          className="relative w-full cursor-pointer" 
-          style={{ aspectRatio: "16/9" }}
+        <Box
+          className="relative w-full cursor-pointer"
           onClick={() => onPostClick && onPostClick(latestPost)}
+          sx={{
+            width: '100%',
+            aspectRatio: "16/9",
+            maxHeight: { xs: '70vh', sm: 'none' },
+            overflow: 'hidden'
+          }}
         >
           <CardMedia
             component="video"
@@ -287,16 +323,22 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
             className="w-full h-full object-cover"
             sx={{
               width: "100%",
-              height: "100%",
+              height: { xs: "auto", sm: "100%" },
+              maxHeight: { xs: "70vh", sm: "none" },
               objectFit: "cover",
             }}
           />
-        </div>
+        </Box>
       )}
 
       <CardContent 
         className="cursor-pointer"
         onClick={() => onPostClick && onPostClick(latestPost)}
+        sx={{
+          px: { xs: 1.5, sm: 2 },
+          py: { xs: 1, sm: 1.5 },
+          pb: { xs: '8px !important', sm: '16px !important' }
+        }}
       >
         <Typography
           variant="body2"
@@ -304,14 +346,24 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
           className="whitespace-pre-wrap break-words"
           sx={{
             lineHeight: 1.5,
-            fontSize: "0.95rem",
+            fontSize: { xs: "0.875rem", sm: "0.95rem" },
+            wordBreak: 'break-word'
           }}
         >
           {latestPost?.caption || "No caption provided"}
         </Typography>
       </CardContent>
 
-      <CardActions className="flex justify-between" disableSpacing>
+      <CardActions 
+        className="flex justify-between" 
+        disableSpacing
+        sx={{
+          px: { xs: 1, sm: 2 },
+          py: { xs: 0.5, sm: 1 },
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          gap: { xs: 0.5, sm: 0 }
+        }}
+      >
         <div className="flex items-center">
           <div className="flex items-center">
             <IconButton
@@ -322,12 +374,18 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
             >
               {likeState.isLiked ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />}
             </IconButton>
-            <span 
-              className="text-sm text-gray-600 ml-1 cursor-pointer hover:underline"
+            <Typography
+              variant="caption"
+              sx={{
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                ml: { xs: 0.5, sm: 1 },
+                cursor: 'pointer',
+                '&:hover': { textDecoration: 'underline' }
+              }}
               onClick={handleLikesClick}
             >
               {likeState.likeCount} likes
-            </span>
+            </Typography>
           </div>
 
           {/* Recent liked users profiles */}
@@ -368,12 +426,18 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
           >
             <ChatBubbleIcon />
           </IconButton>
-          <span 
-            className="text-sm text-gray-600 ml-1 cursor-pointer hover:underline"
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: { xs: "0.75rem", sm: "0.875rem" },
+              ml: { xs: 0.5, sm: 1 },
+              cursor: 'pointer',
+              '&:hover': { textDecoration: 'underline' }
+            }}
             onClick={handleCommentsClick}
           >
             {latestPost?.totalComments || 0} comments
-          </span>
+          </Typography>
 
           <IconButton onClick={(e) => e.stopPropagation()} className="ml-3">
             <ShareIcon />
