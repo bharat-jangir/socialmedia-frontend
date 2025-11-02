@@ -112,22 +112,39 @@ const WebSocketService = {
         console.log('🔌 Initializing WebSocket connection...');
 
         // Get WebSocket URL from API base URL
-        // SockJS automatically handles protocol upgrade (HTTP->HTTPS, WS->WSS)
         const getWebSocketUrl = () => {
           if (!API_BASE_URL) {
             throw new Error('API_BASE_URL is not configured');
           }
           
-          // Use API_BASE_URL directly (already includes fallback to production URL)
-          // SockJS will automatically upgrade to WSS if page is loaded over HTTPS
-          return `${API_BASE_URL}/ws`;
+          // Check if current page is loaded over HTTPS
+          const isSecure = window.location.protocol === 'https:';
+          
+          // Ensure WebSocket URL uses HTTPS when page is loaded over HTTPS
+          let wsUrl = API_BASE_URL;
+          
+          // If page is HTTPS but API URL is HTTP, upgrade to HTTPS
+          if (isSecure && wsUrl.startsWith('http://')) {
+            wsUrl = wsUrl.replace('http://', 'https://');
+            console.log('🔒 Upgraded WebSocket URL to HTTPS:', wsUrl);
+          }
+          
+          // Ensure the URL always ends with /ws
+          if (!wsUrl.endsWith('/ws')) {
+            wsUrl = `${wsUrl}/ws`;
+          }
+          
+          return wsUrl;
         };
 
         const wsUrl = getWebSocketUrl();
         
+        console.log('🔌 WebSocket URL:', wsUrl);
+        console.log('📄 Page protocol:', window.location.protocol);
+        console.log('🌐 API_BASE_URL:', API_BASE_URL);
+        
         // Create SockJS connection
-        // SockJS automatically uses secure transport (wss://) if page is loaded over HTTPS
-        // Even if URL starts with http://, SockJS upgrades to wss:// for HTTPS pages
+        // When page is HTTPS, we must use HTTPS for WebSocket to avoid security errors
         const socket = new SockJS(wsUrl, null, {
           transports: ['websocket', 'xhr-streaming', 'xhr-polling']
         });
