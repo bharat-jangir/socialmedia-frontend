@@ -8,6 +8,7 @@ import { useTheme } from "@mui/material/styles";
 import {
   updateUserProfile,
   updateUserProfileImage,
+  getUserProfile,
 } from "../state/Auth/authActions";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
@@ -71,17 +72,34 @@ function ProfileModal({ open, handleClose }) {
       setUploading(true);
       try {
         const imageUrl = await uploadToCloudinary(file, "image");
+        // Immediately update local state for instant UI reflection
         setProfileImageUrl(imageUrl);
         setProfileImage(file);
 
         const result = await dispatch(updateUserProfileImage(imageUrl));
         if (result.type.endsWith("fulfilled")) {
           console.log("Profile image updated successfully on server");
+          // Refresh user profile to ensure all components get updated data
+          const token = localStorage.getItem("token");
+          if (token) {
+            dispatch(getUserProfile(token));
+          }
+          // Dispatch custom event to notify other components
+          // This will update the UI without refreshing all profile data
+          window.dispatchEvent(new CustomEvent('profileImageUpdated', {
+            detail: { imageUrl }
+          }));
         } else {
           console.error("Failed to update profile image:", result.payload);
+          setUpdateError(result.payload?.message || "Failed to update profile image");
+          // Revert to original image on error
+          setProfileImageUrl(extractImageUrl(currentUser?.profileImage));
         }
       } catch (error) {
         console.error("Error uploading image:", error);
+        setUpdateError("Failed to upload image");
+        // Revert to original image on error
+        setProfileImageUrl(extractImageUrl(currentUser?.profileImage));
       } finally {
         setUploading(false);
       }
@@ -152,6 +170,7 @@ function ProfileModal({ open, handleClose }) {
               <div className="pl-5 relative group">
                 <div className="relative transform -translate-y-24">
                   <Avatar
+                    key={profileImageUrl || 'default'} // Force re-render when image changes
                     className="transition-all duration-200"
                     sx={{ 
                       width: "10rem", 

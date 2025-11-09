@@ -146,7 +146,28 @@ const messageSlice = createSlice({
             return {...state,loading:true,error:null}
         }),
         builder.addCase(createChat.fulfilled,(state,action)=>{
-            return {...state,loading:false,chats:[...state.chats,action.payload],error:null}
+            const newChat = action.payload;
+            // Check if chat already exists in state (backend may return existing chat)
+            const existingChatIndex = state.chats.findIndex(
+                (chat) => chat.id === newChat.id || chat.id?.toString() === newChat.id?.toString()
+            );
+            
+            if (existingChatIndex !== -1) {
+                // Chat already exists, update it instead of adding duplicate
+                const updatedChats = [...state.chats];
+                updatedChats[existingChatIndex] = {
+                    ...updatedChats[existingChatIndex],
+                    ...newChat,
+                    // Preserve existing messages if new chat doesn't have them
+                    messages: newChat.messages && newChat.messages.length > 0 
+                        ? newChat.messages 
+                        : (updatedChats[existingChatIndex].messages || [])
+                };
+                return {...state, loading: false, chats: updatedChats, error: null};
+            } else {
+                // New chat, add it
+                return {...state, loading: false, chats: [...state.chats, newChat], error: null};
+            }
         }),
         builder.addCase(createChat.rejected,(state,action)=>{
             return {...state,loading:false,error:action.payload}

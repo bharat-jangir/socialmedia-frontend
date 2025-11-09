@@ -121,7 +121,7 @@ const StoriesSection = () => {
         />
 
         {/* Following Users' Stories - Sorted by hasUnviewedStories */}
-        {(followingStories || [])
+        {[...(followingStories || [])]
           .sort((a, b) => {
             // Unviewed stories first (hasUnviewedStories: true)
             if (a.hasUnviewedStories && !b.hasUnviewedStories) return -1;

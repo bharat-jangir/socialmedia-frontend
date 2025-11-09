@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   Modal,
   Box,
@@ -63,6 +64,7 @@ const style = {
 
 function ReelModal({ open, onClose, reel }) {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const loading = useSelector((state) => state.post.loading);
   const currentUser = useSelector((state) => state.auth.user);
   const savedPostIds = useSelector((state) => state.post?.savedPostIds || []);
@@ -684,10 +686,24 @@ function ReelModal({ open, onClose, reel }) {
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Avatar
                     src={extractImageUrl(latestReel.user?.profileImage)}
-                    sx={{ width: 32, height: 32 }}
+                    sx={{ width: 32, height: 32, cursor: 'pointer' }}
+                    onClick={() => {
+                      if (latestReel?.user?.id) {
+                        navigate(`/profile/${latestReel.user.id}`);
+                      }
+                    }}
                   />
                   <Box>
-                    <Typography variant="subtitle2" fontWeight="bold">
+                    <Typography 
+                      variant="subtitle2" 
+                      fontWeight="bold"
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => {
+                        if (latestReel?.user?.id) {
+                          navigate(`/profile/${latestReel.user.id}`);
+                        }
+                      }}
+                    >
                       {latestReel.user?.fname} {latestReel.user?.lname}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">

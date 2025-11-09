@@ -142,6 +142,7 @@ const StoryCircle = ({ user, hasStories = false, isOwnStory = false, hasUnviewed
             }}
           >
             <Avatar
+              key={user?.profileImage || 'default'} // Force re-render when image changes
               src={user?.profileImage}
               alt={user?.fname}
               sx={{

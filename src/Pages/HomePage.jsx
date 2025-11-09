@@ -7,6 +7,7 @@ import {
   BottomNavigation,
   BottomNavigationAction,
   Drawer,
+  Box,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -27,6 +28,7 @@ import { useEffect, useState } from "react";
 // getUserProfile import removed - now handled in App.jsx
 import { navigationMenu } from "../components/SidebarNav.jsx";
 import { SidebarSkeleton, HomeRightSkeleton } from "../components/SkeletonLoader";
+import ConnectionStatusDot from "../components/ConnectionStatusDot";
 
 function HomePage() {
   const location = useLocation();
@@ -298,28 +300,56 @@ function HomePage() {
       <StoryModal />
       <CreateStoryModal />
 
+      {/* Desktop Connection Status Dot - Right bottom corner */}
+      <Box
+        sx={{
+          display: { xs: "none", lg: "block" },
+          position: "fixed",
+          bottom: 16,
+          right: 16,
+          zIndex: 1000,
+        }}
+      >
+        <ConnectionStatusDot />
+      </Box>
 
       {/* Mobile Bottom Navigation - Only visible on mobile */}
-      <BottomNavigation
-        value={mobileNavValue}
-        onChange={handleMobileNavChange}
+      <Box
         sx={{
-          display: { xs: "flex", lg: "none" },
+          display: { xs: "block", lg: "none" },
           position: "fixed",
           bottom: 0,
           left: 0,
           right: 0,
           zIndex: 1000,
           width: '100%',
-          maxWidth: '100vw',
-          boxSizing: 'border-box',
-          '& .MuiBottomNavigationAction-root': {
-            minWidth: { xs: '50px', sm: '80px' },
-            maxWidth: { xs: 'none', sm: 'none' },
-            padding: { xs: '6px 2px', sm: '8px 12px' },
-          }
         }}
       >
+        {/* Connection Status Dot - Small indicator in top-right corner */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            zIndex: 1001,
+          }}
+        >
+          <ConnectionStatusDot />
+        </Box>
+        <BottomNavigation
+          value={mobileNavValue}
+          onChange={handleMobileNavChange}
+          sx={{
+            width: '100%',
+            maxWidth: '100vw',
+            boxSizing: 'border-box',
+            '& .MuiBottomNavigationAction-root': {
+              minWidth: { xs: '50px', sm: '80px' },
+              maxWidth: { xs: 'none', sm: 'none' },
+              padding: { xs: '6px 2px', sm: '8px 12px' },
+            }
+          }}
+        >
         {navigationMenu.map((item, index) => (
           <BottomNavigationAction
             key={item.title}
@@ -353,7 +383,8 @@ function HomePage() {
             }}
           />
         ))}
-      </BottomNavigation>
+        </BottomNavigation>
+      </Box>
     </div>
   );
 }

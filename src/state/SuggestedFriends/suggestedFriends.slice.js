@@ -60,7 +60,14 @@ const suggestedFriendsSlice = createSlice({
       })
       .addCase(getAllSuggestions.fulfilled, (state, action) => {
         state.loading = false;
-        state.suggestions = action.payload.data || action.payload;
+        const rawData = action.payload.data || action.payload;
+        // Normalize profile image field: backend returns 'profilePicture', normalize to 'profileImage'
+        state.suggestions = Array.isArray(rawData) 
+          ? rawData.map(user => ({
+              ...user,
+              profileImage: user.profileImage || user.profilePicture || null
+            }))
+          : [];
         state.error = null;
       })
       .addCase(getAllSuggestions.rejected, (state, action) => {
@@ -76,7 +83,14 @@ const suggestedFriendsSlice = createSlice({
       })
       .addCase(getMutualSuggestions.fulfilled, (state, action) => {
         state.loading = false;
-        state.mutualSuggestions = action.payload.data || action.payload;
+        const rawData = action.payload.data || action.payload;
+        // Normalize profile image field: backend returns 'profilePicture', normalize to 'profileImage'
+        state.mutualSuggestions = Array.isArray(rawData) 
+          ? rawData.map(user => ({
+              ...user,
+              profileImage: user.profileImage || user.profilePicture || null
+            }))
+          : [];
         state.error = null;
       })
       .addCase(getMutualSuggestions.rejected, (state, action) => {
@@ -92,7 +106,14 @@ const suggestedFriendsSlice = createSlice({
       })
       .addCase(getGenderBasedSuggestions.fulfilled, (state, action) => {
         state.loading = false;
-        state.genderBasedSuggestions = action.payload.data || action.payload;
+        const rawData = action.payload.data || action.payload;
+        // Normalize profile image field: backend returns 'profilePicture', normalize to 'profileImage'
+        state.genderBasedSuggestions = Array.isArray(rawData) 
+          ? rawData.map(user => ({
+              ...user,
+              profileImage: user.profileImage || user.profilePicture || null
+            }))
+          : [];
         state.error = null;
       })
       .addCase(getGenderBasedSuggestions.rejected, (state, action) => {
@@ -108,7 +129,36 @@ const suggestedFriendsSlice = createSlice({
       })
       .addCase(getAllTypesDetailed.fulfilled, (state, action) => {
         state.loading = false;
-        state.detailedSuggestions = action.payload.data || action.payload;
+        const payloadData = action.payload.data || action.payload;
+        // Handle nested structure for getAllTypesDetailed
+        if (payloadData && typeof payloadData === 'object' && !Array.isArray(payloadData)) {
+          // If it's an object with nested arrays (all_suggestions, mutual_friends, gender_based)
+          const normalizeUsers = (users) => Array.isArray(users) 
+            ? users.map(user => ({
+                ...user,
+                profileImage: user.profileImage || user.profilePicture || null
+              }))
+            : [];
+          
+          // Normalize all nested suggestion arrays
+          if (payloadData.all_suggestions) {
+            payloadData.all_suggestions = normalizeUsers(payloadData.all_suggestions);
+          }
+          if (payloadData.mutual_friends) {
+            payloadData.mutual_friends = normalizeUsers(payloadData.mutual_friends);
+          }
+          if (payloadData.gender_based) {
+            payloadData.gender_based = normalizeUsers(payloadData.gender_based);
+          }
+          state.detailedSuggestions = payloadData;
+        } else {
+          // If it's a flat array, normalize it
+          const rawData = Array.isArray(payloadData) ? payloadData : [];
+          state.detailedSuggestions = rawData.map(user => ({
+            ...user,
+            profileImage: user.profileImage || user.profilePicture || null
+          }));
+        }
         state.error = null;
       })
       .addCase(getAllTypesDetailed.rejected, (state, action) => {

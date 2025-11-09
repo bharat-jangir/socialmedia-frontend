@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   Modal,
   Box,
@@ -63,6 +64,7 @@ const style = {
 
 function PostModal({ open, onClose, post }) {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const loading = useSelector((state) => state.post.loading);
   const currentUser = useSelector((state) => state.auth.user);
   const comments = useSelector((state) => state.post.comments) || [];
@@ -161,10 +163,17 @@ function PostModal({ open, onClose, post }) {
         return newLikeCounts;
       });
       
-      // Also update local comments state, but preserve like state
+      // Also update local comments state, but preserve like state and keep local-only comments
       setLocalComments(prevComments => {
-        const updatedComments = comments.map(comment => {
-          const existingComment = prevComments.find(c => c.id === comment.id);
+        // Create a map of Redux comments by ID for quick lookup
+        const reduxCommentsMap = new Map();
+        comments.forEach(comment => {
+          reduxCommentsMap.set(comment.id?.toString(), comment);
+        });
+        
+        // Merge: Start with Redux comments, preserving local like state for interacted comments
+        const mergedComments = comments.map(comment => {
+          const existingComment = prevComments.find(c => c.id?.toString() === comment.id?.toString());
           if (existingComment && localInteractedComments.has(comment.id)) {
             // Preserve local like state for interacted comments
             return {
@@ -175,7 +184,40 @@ function PostModal({ open, onClose, post }) {
           }
           return comment;
         });
-        return updatedComments;
+        
+        // Add any local comments that aren't in Redux yet, but only if they're temporary/optimistic
+        // Regular comments that aren't in Redux were likely deleted, so don't keep them
+        const localOnlyComments = prevComments.filter(prevComment => {
+          const prevCommentId = prevComment.id?.toString();
+          const isTemporary = prevCommentId?.startsWith('temp_') || prevComment.isOptimistic;
+          const existsInRedux = reduxCommentsMap.has(prevCommentId);
+          
+          // Only keep temporary/optimistic comments that don't exist in Redux
+          // Regular comments not in Redux should be removed (they were deleted)
+          return isTemporary && !existsInRedux;
+        });
+        
+        // Combine Redux comments with local-only comments, removing duplicates by ID
+        const allCommentsMap = new Map();
+        
+        // First, add all Redux comments
+        mergedComments.forEach(comment => {
+          const commentId = comment.id?.toString();
+          if (commentId) {
+            allCommentsMap.set(commentId, comment);
+          }
+        });
+        
+        // Then, add local-only comments that don't exist yet
+        localOnlyComments.forEach(localComment => {
+          const localId = localComment.id?.toString();
+          if (localId && !allCommentsMap.has(localId)) {
+            allCommentsMap.set(localId, localComment);
+          }
+        });
+        
+        // Convert map back to array
+        return Array.from(allCommentsMap.values());
       });
     }
   }, [comments, localInteractedComments]);
@@ -242,14 +284,64 @@ function PostModal({ open, onClose, post }) {
   }, [open, latestPost?.id, dispatch]);
 
   // Update local comments state when Redux comments change
+  // But preserve locally added comments that might not be in Redux yet
   useEffect(() => {
-    if (comments && comments.length > 0) {
-      setLocalComments(comments);
-    } else if (latestPost?.comments) {
-      setLocalComments(latestPost.comments);
-    } else {
-      setLocalComments([]);
-    }
+    setLocalComments(prevComments => {
+      // Determine source of comments (Redux or post)
+      const sourceComments = (comments && comments.length > 0) 
+        ? comments 
+        : (latestPost?.comments && latestPost.comments.length > 0)
+          ? latestPost.comments
+          : [];
+      
+      if (sourceComments.length === 0) {
+        // If no source comments, keep optimistic/temporary local comments
+        const optimisticComments = prevComments.filter(c => 
+          c.id?.toString().startsWith('temp_') || c.isOptimistic
+        );
+        return optimisticComments;
+      }
+      
+      // Create a map of source comments by ID
+      const sourceCommentsMap = new Map();
+      sourceComments.forEach(comment => {
+        sourceCommentsMap.set(comment.id?.toString(), comment);
+      });
+      
+      // Keep local comments that aren't in source yet, but only if they're temporary/optimistic
+      // Regular comments that aren't in source were likely deleted, so don't keep them
+      const localOnlyComments = prevComments.filter(prevComment => {
+        const prevId = prevComment.id?.toString();
+        const isTemporary = prevId?.startsWith('temp_') || prevComment.isOptimistic;
+        const existsInSource = sourceCommentsMap.has(prevId);
+        
+        // Only keep temporary/optimistic comments that don't exist in source
+        // Regular comments not in source should be removed (they were deleted)
+        return isTemporary && !existsInSource;
+      });
+      
+      // Merge: Source comments + local-only comments, removing duplicates by ID using Map
+      const mergedMap = new Map();
+      
+      // First, add all source comments
+      sourceComments.forEach(comment => {
+        const commentId = comment.id?.toString();
+        if (commentId) {
+          mergedMap.set(commentId, comment);
+        }
+      });
+      
+      // Then, add local-only comments that don't exist yet
+      localOnlyComments.forEach(localComment => {
+        const localId = localComment.id?.toString();
+        if (localId && !mergedMap.has(localId)) {
+          mergedMap.set(localId, localComment);
+        }
+      });
+      
+      // Convert map back to array
+      return Array.from(mergedMap.values());
+    });
   }, [comments, latestPost?.comments]);
 
   // Sync local like state with Redux state when comments change
@@ -364,22 +456,47 @@ function PostModal({ open, onClose, post }) {
         const commentText = newComment.trim();
         setNewComment("");
         
-        // Check if result.comment exists and has proper structure
+        // Don't manually add to localComments here - let Redux handle it via addComment.fulfilled
+        // The useEffect will sync Redux comments to localComments automatically
+        // Only add if Redux doesn't have it (optimistic update for temporary comments)
         if (result.payload?.comment && result.payload.comment.user) {
-          console.log("PostModal - Adding comment from API response:", result.payload.comment);
-          setLocalComments((prev) => [...prev, result.payload.comment]);
+          console.log("PostModal - Comment added via Redux, will sync automatically");
+          // Check if comment is already in Redux (it should be after addComment.fulfilled)
+          // If not, add it optimistically (shouldn't happen, but just in case)
+          const commentId = result.payload.comment.id?.toString();
+          const isInRedux = comments.some(c => c.id?.toString() === commentId);
+          if (!isInRedux) {
+            console.log("PostModal - Comment not in Redux yet, adding optimistically");
+            setLocalComments((prev) => {
+              // Check for duplicates before adding
+              const exists = prev.some(c => c.id?.toString() === commentId);
+              if (!exists) {
+                return [...prev, { ...result.payload.comment, isOptimistic: true }];
+              }
+              return prev;
+            });
+          }
         } else {
-          // Fallback: create comment object with current user data
-          console.log("PostModal - API response missing comment data, creating fallback");
+          // Fallback: create temporary comment only if Redux doesn't have it
+          console.log("PostModal - API response missing comment data, creating temporary fallback");
+          const tempId = `temp_${Date.now()}`;
           const fallbackComment = {
-            id: Date.now(), // Temporary ID
+            id: tempId,
             content: commentText,
             user: currentUser,
             totalLikes: 0,
             isLiked: false,
             createdAt: new Date().toISOString(),
+            isOptimistic: true,
           };
-          setLocalComments((prev) => [...prev, fallbackComment]);
+          setLocalComments((prev) => {
+            // Check for duplicates before adding
+            const exists = prev.some(c => c.id?.toString() === tempId);
+            if (!exists) {
+              return [...prev, fallbackComment];
+            }
+            return prev;
+          });
         }
         
         // Update local post comment count
@@ -452,12 +569,16 @@ function PostModal({ open, onClose, post }) {
     if (window.confirm("Are you sure you want to delete this comment?")) {
       setIsSubmitting(true);
       try {
-        const result = await dispatch(deleteComment(commentId));
+        // Pass both commentId and postId so reducer knows which post to update
+        const result = await dispatch(deleteComment({ 
+          commentId, 
+          postId: latestPost?.id 
+        }));
 
         if (result.type.endsWith("fulfilled")) {
           // Remove comment from local state immediately for real-time UI
           setLocalComments((prevComments) =>
-            prevComments.filter((comment) => comment.id !== commentId)
+            prevComments.filter((comment) => comment.id?.toString() !== commentId?.toString())
           );
           
           // Update local post comment count
@@ -537,6 +658,8 @@ function PostModal({ open, onClose, post }) {
     reduxCommentsLength: comments?.length,
   });
 
+  // Use actual comment count from localComments - this is the source of truth
+  // It will be accurate because localComments is synced with Redux comments
   const commentCount = localComments.length;
 
   return (
@@ -654,10 +777,24 @@ function PostModal({ open, onClose, post }) {
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Avatar
                   src={extractImageUrl(latestPost.user?.profileImage)}
-                  sx={{ width: 32, height: 32 }}
+                  sx={{ width: 32, height: 32, cursor: 'pointer' }}
+                  onClick={() => {
+                    if (latestPost?.user?.id) {
+                      navigate(`/profile/${latestPost.user.id}`);
+                    }
+                  }}
                 />
                 <Box>
-                  <Typography variant="subtitle2" fontWeight="bold">
+                  <Typography 
+                    variant="subtitle2" 
+                    fontWeight="bold"
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => {
+                      if (latestPost?.user?.id) {
+                        navigate(`/profile/${latestPost.user.id}`);
+                      }
+                    }}
+                  >
                     {latestPost.user?.fname} {latestPost.user?.lname}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
@@ -853,7 +990,7 @@ function PostModal({ open, onClose, post }) {
                   <ChatBubbleOutlineIcon />
                 </IconButton>
                 <Typography variant="caption" sx={{ ml: 0.5 }}>
-                  {Math.max(0, latestPost?.totalComments || 0)}
+                  {Math.max(0, commentCount)}
                 </Typography>
                 <IconButton>
                   <ShareIcon />
@@ -906,6 +1043,7 @@ function PostModal({ open, onClose, post }) {
             <Box sx={{ p: 2, borderTop: "1px solid #e0e0e0" }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Avatar
+                  key={extractImageUrl(currentUser?.profileImage) || 'default'} // Force re-render when image changes
                   src={extractImageUrl(currentUser?.profileImage)}
                   sx={{ width: 32, height: 32 }}
                 />
@@ -954,7 +1092,7 @@ function PostModal({ open, onClose, post }) {
         setCommentsModalOpen(false);
       }}
       postId={latestPost?.id}
-      totalComments={latestPost?.totalComments || 0}
+      totalComments={commentCount}
     />
 
     {/* Menu for post options */}

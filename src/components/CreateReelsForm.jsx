@@ -392,7 +392,11 @@ function CreateReelsForm({ open, handleClose }) {
 
         {/* User Info */}
         <div className="flex items-center mb-4">
-          <Avatar src={user?.profileImage} className="mr-3" />
+          <Avatar 
+            key={user?.profileImage || 'default'} // Force re-render when image changes
+            src={user?.profileImage} 
+            className="mr-3" 
+          />
           <Typography variant="body1" className="font-medium">
             {user?.fname} {user?.lname}
           </Typography>

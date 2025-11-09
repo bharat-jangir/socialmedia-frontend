@@ -152,6 +152,7 @@ function Sidebar({ onMobileClose }) {
           <div className="pl-3 sm:pl-5 flex items-center justify-between pt-3 sm:pt-5">
             <div className="flex items-center space-x-2 sm:space-x-3">
               <Avatar
+                key={auth.user?.profileImage || 'default'} // Force re-render when image changes
                 src={auth.user?.profileImage || "https://img.freepik.com/free-vector/isolated-young-handsome-man-different-poses-white-background-illustration_632498-859.jpg?w=826&t=st=1711805221~exp=1711805821~hmac=8000422d501b4b12b39e9fcfc545165eb3c23276533c4ab4637b81ec9b88386c"}
                 sx={{ width: { xs: 32, sm: 40 }, height: { xs: 32, sm: 40 } }}
               />

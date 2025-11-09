@@ -161,6 +161,7 @@ function CreatePostModal({ open, handleClose }) {
           <div>
             <div className="flex space-x-3 sm:space-x-4 items-center">
               <Avatar 
+                key={user?.profileImage || 'default'} // Force re-render when image changes
                 src={user?.profileImage}
                 sx={{ width: { xs: 32, sm: 40 }, height: { xs: 32, sm: 40 } }}
               >

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { Box, CircularProgress, Typography, IconButton, TextField, Avatar, Dialog, DialogContent, DialogTitle, List, ListItem, ListItemAvatar, ListItemText, ListItemSecondaryAction, useTheme } from '@mui/material';
 import { getAllReels, likeReel, addReelComment, updateReelComment, deleteReelComment, getReelComments, likeComment } from '../state/Post/post.action';
 import { addOptimisticReelComment, removeOptimisticReelComment } from '../state/Post/postSlice';
@@ -18,6 +19,7 @@ import TimeAgo from './TimeAgo';
 
 function Reels() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const theme = useTheme();
   const { allReels, loading, reelsLoadingMore, reelsHasMore, reelsCurrentPage, reelComments } = useSelector((state) => state.post);
   const { user } = useSelector((state) => state.auth);
@@ -753,10 +755,28 @@ function Reels() {
                   height: { xs: 32, sm: 40 },
                   borderRadius: '50%',
                   marginRight: 1,
-                  border: '2px solid white'
+                  border: '2px solid white',
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  if (reel?.user?.id) {
+                    navigate(`/profile/${reel.user.id}`);
+                  }
                 }}
               />
-              <Typography variant="subtitle2" fontWeight="bold" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+              <Typography 
+                variant="subtitle2" 
+                fontWeight="bold" 
+                sx={{ 
+                  fontSize: { xs: '0.875rem', sm: '1rem' },
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  if (reel?.user?.id) {
+                    navigate(`/profile/${reel.user.id}`);
+                  }
+                }}
+              >
                 {reel.user?.fname} {reel.user?.lname}
               </Typography>
             </Box>
@@ -954,7 +974,12 @@ function Reels() {
           {/* Add Comment Input */}
           <Box sx={{ borderTop: 1, borderColor: 'divider', p: 2 }}>
             <Box display="flex" alignItems="center" gap={1}>
-              <Avatar src={user?.profileImage} alt={user?.fname} sx={{ width: 32, height: 32 }} />
+              <Avatar 
+                key={user?.profileImage || 'default'} // Force re-render when image changes
+                src={user?.profileImage} 
+                alt={user?.fname} 
+                sx={{ width: 32, height: 32 }} 
+              />
               <TextField
                 fullWidth
                 placeholder="Add a comment..."

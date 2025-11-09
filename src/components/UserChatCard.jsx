@@ -66,6 +66,7 @@ const UserChatCard = memo(function UserChatCard({chat, onChatDeleted}) {
       <CardHeader
         avatar={
           <Avatar
+            key={otherUser?.profileImage || 'default'} // Force re-render when image changes
             sx={{
               width: "3.5rem",
               height: "3.5rem",

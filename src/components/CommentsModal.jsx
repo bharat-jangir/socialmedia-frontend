@@ -390,28 +390,16 @@ function CommentsModal({ open, onClose, postId, totalComments }) {
     console.log("🔍 CommentsModal - postId:", postId, "commentId:", commentId);
     
     try {
-      const result = await dispatch(deleteComment(commentId));
+      // Pass both commentId and postId so reducer knows which post to update
+      const result = await dispatch(deleteComment({ 
+        commentId, 
+        postId: postId 
+      }));
       
       if (result.type.endsWith('fulfilled')) {
         console.log("✅ Comment deleted successfully");
-        
-        // Update post's total comment count locally
-        dispatch({
-          type: 'post/updatePostCommentCount',
-          payload: {
-            postId: postId,
-            increment: -1
-          }
-        });
-        
-        // Remove comment from local comments list
-        dispatch({
-          type: 'post/removeCommentFromList',
-          payload: {
-            postId: postId,
-            commentId: commentId
-          }
-        });
+        // Don't manually decrement count - deleteComment.fulfilled reducer already handles it
+        // Don't manually remove from list - deleteComment.fulfilled reducer already handles it
       } else {
         console.log("❌ Failed to delete comment:", result.payload);
       }
@@ -612,6 +600,7 @@ function CommentsModal({ open, onClose, postId, totalComments }) {
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Avatar
+              key={currentUser?.profileImage || 'default'} // Force re-render when image changes
               src={currentUser?.profileImage}
               sx={{ width: 32, height: 32 }}
             />

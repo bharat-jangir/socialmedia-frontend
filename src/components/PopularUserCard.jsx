@@ -79,7 +79,8 @@ function PopularUserCard({ user, suggestionType = "all" }) {
       <CardHeader
         avatar={
           <Avatar 
-            src={user.profileImage} 
+            key={user.profileImage || user.profilePicture || user.id || 'default'} // Force re-render when image changes
+            src={user.profileImage || user.profilePicture} 
             sx={{ bgcolor: red[500], cursor: 'pointer' }} 
             aria-label="user-avatar"
             onClick={handleProfileClick}

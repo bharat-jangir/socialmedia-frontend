@@ -30,7 +30,7 @@ import {
 import { useNotifications } from '../context/NotificationContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
-const NotificationBell = () => {
+const NotificationBell = ({ asIcon = false }) => {
   const theme = useTheme();
   const {
     notifications,
@@ -120,6 +120,31 @@ const NotificationBell = () => {
         return '#1976d2';
     }
   };
+
+  // If used as icon (e.g., in BottomNavigationAction), render just the icon without button wrapper
+  if (asIcon) {
+    return (
+      <Badge
+        badgeContent={unreadCount}
+        color="error"
+        max={99}
+        sx={{
+          '& .MuiBadge-badge': {
+            backgroundColor: '#ff3040',
+            color: '#fff',
+            fontSize: '0.75rem',
+            fontWeight: 'bold',
+          },
+        }}
+      >
+        {unreadCount > 0 ? (
+          <NotificationsIcon sx={{ fontSize: 24 }} />
+        ) : (
+          <NotificationsNoneIcon sx={{ fontSize: 24 }} />
+        )}
+      </Badge>
+    );
+  }
 
   return (
     <>
@@ -261,6 +286,7 @@ const NotificationBell = () => {
                         >
                           <ListItemAvatar>
                             <Avatar
+                              key={notification.sender?.profileImage || notification.id || 'default'} // Force re-render when image changes
                               src={notification.sender?.profileImage}
                               alt={notification.sender?.fname}
                               sx={{

@@ -52,16 +52,37 @@ function HomeRight() {
   useEffect(() => {
     switch (currentFilter) {
       case 'mutual':
-        setDisplayedSuggestions(mutualSuggestions);
+        setDisplayedSuggestions(Array.isArray(mutualSuggestions) ? mutualSuggestions : []);
         break;
       case 'gender':
-        setDisplayedSuggestions(genderBasedSuggestions);
+        setDisplayedSuggestions(Array.isArray(genderBasedSuggestions) ? genderBasedSuggestions : []);
         break;
       case 'detailed':
-        setDisplayedSuggestions(detailedSuggestions);
+        // Handle detailed suggestions - it might be an object with nested arrays or a flat array
+        if (detailedSuggestions && typeof detailedSuggestions === 'object' && !Array.isArray(detailedSuggestions)) {
+          // If it's an object, combine all nested arrays and deduplicate by user ID
+          const allDetailed = [
+            ...(detailedSuggestions.all_suggestions || []),
+            ...(detailedSuggestions.mutual_friends || []),
+            ...(detailedSuggestions.gender_based || [])
+          ];
+          // Remove duplicates based on user ID using a Set for better performance
+          const seenIds = new Set();
+          const uniqueDetailed = allDetailed.filter((user) => {
+            const userId = user.id?.toString() || user.userId?.toString();
+            if (!userId || seenIds.has(userId)) {
+              return false;
+            }
+            seenIds.add(userId);
+            return true;
+          });
+          setDisplayedSuggestions(uniqueDetailed);
+        } else {
+          setDisplayedSuggestions(Array.isArray(detailedSuggestions) ? detailedSuggestions : []);
+        }
         break;
       default:
-        setDisplayedSuggestions(suggestions);
+        setDisplayedSuggestions(Array.isArray(suggestions) ? suggestions : []);
     }
   }, [currentFilter, suggestions, mutualSuggestions, genderBasedSuggestions, detailedSuggestions]);
 

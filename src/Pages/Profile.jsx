@@ -6,8 +6,9 @@ import {
   getUserReels,
   getSavedPosts,
 } from "../state/Post/post.action";
-import { followUser, unfollowUser, updateUserCoverImage } from "../state/Auth/authActions";
+import { followUser, unfollowUser, updateUserCoverImage, getUserProfile } from "../state/Auth/authActions";
 import { createChat } from "../state/Message/message.action";
+import { getAllChats } from "../state/Message/message.action";
 import PostModal from "../components/PostModal";
 import ReelModal from "../components/ReelModal";
 import { useParams, useNavigate } from "react-router-dom";
@@ -39,6 +40,7 @@ const UserProfile = () => {
   const currentUser = useSelector((state) => state.auth.user);
   const profileLoading = useSelector((state) => state.post.loading);
   const userProfileFromRedux = useSelector((state) => state.post.userProfile);
+  const existingChats = useSelector((state) => state.message.chats) || [];
   
   // Track loading states for posts and reels separately
   const [postsLoading, setPostsLoading] = useState(false);
@@ -54,12 +56,22 @@ const UserProfile = () => {
   
   if (isViewingOwnProfile) {
     // If viewing own profile:
-    // 1. Use Redux data ONLY if it matches current user's ID
-    // 2. Otherwise, use currentUser (always valid for own profile)
+    // 1. Always prefer userProfileFromRedux if it matches (has posts/reels counts)
+    // 2. Fall back to currentUser only if Redux doesn't have the data yet
     if (profileIdMatches && userProfileFromRedux) {
       userProfile = userProfileFromRedux;
+      // Merge currentUser profile image to ensure we have the latest image
+      // This ensures instant updates when profile image is changed
+      if (currentUser?.profileImage) {
+        userProfile = { ...userProfile, profileImage: currentUser.profileImage };
+      }
+    } else if (userProfileFromRedux && !profileIdMatches) {
+      // Redux has stale data for different user - wait for new data to load
+      // Don't use currentUser here as it doesn't have posts/reels counts
+      userProfile = null; // Will show skeleton until data loads
     } else {
-      // Redux has stale data from another user, use currentUser instead
+      // No Redux data yet, use currentUser as fallback for basic info
+      // But this should only happen briefly during initial load
       userProfile = currentUser;
     }
   } else {
@@ -69,6 +81,24 @@ const UserProfile = () => {
     }
     // Otherwise userProfile stays null (will show skeleton)
   }
+
+  // Helper function to add cache-busting to image URLs
+  const getImageUrlWithCacheBust = (imageUrl) => {
+    if (!imageUrl) return null;
+    // If URL already has query parameters, append timestamp
+    // Otherwise, add it
+    const separator = imageUrl.includes('?') ? '&' : '?';
+    return `${imageUrl}${separator}t=${Date.now()}`;
+  };
+
+  // Get the most up-to-date profile image
+  const getProfileImageUrl = () => {
+    if (isViewingOwnProfile && currentUser?.profileImage) {
+      // When viewing own profile, prioritize currentUser profile image for instant updates
+      return currentUser.profileImage;
+    }
+    return userProfile?.profileImage;
+  };
   
   const postsCount = useSelector((state) => state.post.postsCount) || 0;
   const savedPostsCount = useSelector((state) => state.post.savedPostsCount) || 0;
@@ -262,6 +292,28 @@ const UserProfile = () => {
     }
   }, [userProfile?.coverImage]);
 
+  // Listen for profile image update events (only refresh profile image, not all data)
+  useEffect(() => {
+    const handleProfileImageUpdate = (event) => {
+      // If viewing own profile, just refresh the current user profile
+      // Don't refresh all profile data as it might interfere with posts/reels
+      if (isViewingOwnProfile && currentUser?.id?.toString() === id?.toString()) {
+        // Only refresh auth user profile to update the image
+        const token = localStorage.getItem("token");
+        if (token) {
+          dispatch(getUserProfile(token));
+        }
+        // Note: We don't call getUserProfileData here because it might clear posts/reels
+        // The profile image will be updated via currentUser from auth state
+      }
+    };
+
+    window.addEventListener('profileImageUpdated', handleProfileImageUpdate);
+    return () => {
+      window.removeEventListener('profileImageUpdated', handleProfileImageUpdate);
+    };
+  }, [id, isViewingOwnProfile, currentUser?.id, dispatch]);
+
   // Track last clicked item to prevent duplicate opens
   const lastClickedItemRef = useRef(null);
   const isOpeningModalRef = useRef(false);
@@ -382,13 +434,31 @@ const UserProfile = () => {
   };
 
   const handleMessageClick = async () => {
-    if (!userProfile?.id) return;
+    if (!userProfile?.id || !currentUser?.id) return;
     
+    // First, check if a chat with this user already exists
+    const existingChat = existingChats.find(chat => {
+      if (!chat.users || chat.users.length !== 2) return false;
+      const userIds = chat.users.map(u => u.id?.toString() || u.id);
+      const targetUserId = userProfile.id?.toString();
+      const currentUserIdStr = currentUser.id?.toString();
+      return userIds.includes(targetUserId) && userIds.includes(currentUserIdStr);
+    });
+    
+    if (existingChat) {
+      // Chat already exists, navigate to it directly
+      const chatId = existingChat.id?.toString() || existingChat.id;
+      navigate(`/message?chatId=${chatId}`);
+      return;
+    }
+    
+    // No existing chat found, create a new one
+    // Backend will also check and return existing chat if found
     try {
       const result = await dispatch(createChat({ userId: userProfile.id }));
       
       if (result.type.endsWith('fulfilled')) {
-        const chatId = result.payload.id;
+        const chatId = result.payload.id?.toString() || result.payload.id;
         navigate(`/message?chatId=${chatId}`);
       } else {
         console.error('Failed to create chat:', result.payload);
@@ -436,9 +506,13 @@ const UserProfile = () => {
         setLocalCoverImage(imageUrl);
         // Clear any previous errors
         setCoverImageError(null);
-        // Also refresh user profile data to ensure consistency
+        // Refresh current user profile to update cover image in auth state
+        // Don't refresh getUserProfileData as it might interfere with posts/reels display
         if (currentUser?.id == id) {
-          dispatch(getUserProfileData(id));
+          const token = localStorage.getItem("token");
+          if (token) {
+            dispatch(getUserProfile(token));
+          }
         }
       } else {
         throw new Error(result.payload || 'Failed to update cover image');
@@ -696,7 +770,8 @@ const UserProfile = () => {
           {/* Profile Picture Overlay */}
           <Box className="absolute bottom-0 left-6 transform translate-y-1/2">
           <Avatar
-              src={userProfile?.profileImage} 
+              key={getProfileImageUrl() || 'default'} // Force re-render when image changes
+              src={getProfileImageUrl()} 
               sx={{ 
                 width: 140, 
                 height: 140,
@@ -707,7 +782,7 @@ const UserProfile = () => {
                 color: theme.palette.primary.main
               }} 
             >
-              {userProfile?.fname?.charAt(0) || "U"}
+              {(userProfile?.fname || currentUser?.fname)?.charAt(0) || "U"}
             </Avatar>
           </Box>
           

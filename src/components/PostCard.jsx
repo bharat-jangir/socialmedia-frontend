@@ -31,6 +31,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import PropTypes from "prop-types";
 import { useState, useEffect, useMemo, useCallback, memo, useRef } from "react";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { createComment, likePost, savePost, deletePost } from "../state/Post/post.action";
 import LikesModal from "./LikesModal";
 import CommentsModal from "./CommentsModal";
@@ -71,6 +72,7 @@ const usePostData = (postId) => {
 const PostCard = memo(function PostCard({ post, onPostClick }) {
   const currentUser = useSelector((state) => state.auth.user);
   const currentUserId = currentUser?.id;
+  const navigate = useNavigate();
   
   // Use custom hook to get only this specific post
   const postFromRedux = usePostData(post.id);
@@ -132,11 +134,27 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
 
   // Instagram-style comments - only update when this post's comments change
   const comments = useMemo(() => latestPost?.comments || [], [latestPost?.comments]);
+  
+  // Calculate comment count - use totalComments from Redux as it's the source of truth
+  // The comments array might only contain recent comments, not all comments
+  const commentCount = useMemo(() => {
+    // Prefer totalComments from Redux state as it's updated by addComment/deleteComment reducers
+    // Fall back to comments array length if totalComments is not available
+    return latestPost?.totalComments ?? (comments?.length || 0);
+  }, [latestPost?.totalComments, comments]);
 
   // Optimized like handler with useCallback to prevent unnecessary re-renders
   const handleLike = useCallback(() => {
     dispatch(likePost(latestPost.id));
   }, [dispatch, latestPost.id]);
+
+  // Handle profile click - navigate to user's profile
+  const handleProfileClick = useCallback((e) => {
+    e.stopPropagation(); // Prevent triggering post click
+    if (latestPost?.user?.id) {
+      navigate(`/profile/${latestPost.user.id}`);
+    }
+  }, [navigate, latestPost?.user?.id]);
 
   // Simple save/unsave handler
   const handleSave = useCallback(() => {
@@ -250,8 +268,9 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
         avatar={
           <Avatar
             src={latestPost?.user?.profileImage}
-            sx={{ bgcolor: red[500] }}
+            sx={{ bgcolor: red[500], cursor: 'pointer' }}
             aria-label="recipe"
+            onClick={handleProfileClick}
           >
             {latestPost?.user?.fname?.charAt(0) || "U"}
           </Avatar>
@@ -436,7 +455,7 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
             }}
             onClick={handleCommentsClick}
           >
-            {latestPost?.totalComments || 0} comments
+            {commentCount} comments
           </Typography>
 
           <IconButton onClick={(e) => e.stopPropagation()} className="ml-3">
@@ -457,7 +476,10 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
       {showComments && (
         <section onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center space-x-5 mx-3 my-5">
-            <Avatar src={currentUser?.profileImage} />
+            <Avatar 
+              key={currentUser?.profileImage || 'default'} // Force re-render when image changes
+              src={currentUser?.profileImage} 
+            />
             <input
               onKeyPress={(e) => {
                 if (e.key === "Enter") {
@@ -503,7 +525,7 @@ const PostCard = memo(function PostCard({ post, onPostClick }) {
           setCommentsModalOpen(false);
         }}
         postId={latestPost?.id}
-        totalComments={latestPost?.totalComments || 0}
+        totalComments={commentCount}
       />
 
       {/* Menu for post options */}

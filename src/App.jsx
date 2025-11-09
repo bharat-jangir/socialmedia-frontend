@@ -17,7 +17,7 @@ import { CustomThemeProvider } from "./context/ThemeContext";
 import { AppLoadingSkeleton } from "./components/SkeletonLoader";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import WebSocketService from "./utils/sockets";
-import WebSocketStatus from "./components/WebSocketStatus";
+// import WebSocketStatus from "./components/WebSocketStatus"; // Commented out - using ConnectionStatusDot in bottom navigation instead
 
 function App() {
   const dispatch = useDispatch();
@@ -170,8 +170,8 @@ function App() {
             </>
           )}
         </Routes>
-        {/* WebSocket Connection Status Monitor */}
-        <WebSocketStatus />
+        {/* WebSocket Connection Status Monitor - Commented out, using ConnectionStatusDot in bottom navigation instead */}
+        {/* <WebSocketStatus /> */}
       </NotificationProvider>
     </CustomThemeProvider>
   );

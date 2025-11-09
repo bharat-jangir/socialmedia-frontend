@@ -40,6 +40,7 @@ import { addMessageToChat, updateMessageInChat, replaceMessageInChat } from "../
 import { getUserGroups } from "../state/Groups/groupActions";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary";
 import WebSocketService from "../utils/sockets";
+import ConnectionStatusDot from "../components/ConnectionStatusDot";
 
 function Message() {
   const theme = useTheme();
@@ -891,6 +892,18 @@ function Message() {
         open={isExploreGroupsModalOpen}
         onClose={() => setIsExploreGroupsModalOpen(false)}
       />
+      
+      {/* Connection Status Dot - Right bottom corner */}
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 16,
+          right: 16,
+          zIndex: 1000,
+        }}
+      >
+        <ConnectionStatusDot />
+      </Box>
     </div>
   );
 }

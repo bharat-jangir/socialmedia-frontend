@@ -773,10 +773,14 @@ export const updateComment = createAsyncThunk(
 // Delete a comment
 export const deleteComment = createAsyncThunk(
   "post/deleteComment",
-  async (commentId, { rejectWithValue }) => {
+  async (commentData, { rejectWithValue }) => {
     try {
       const jwt = localStorage.getItem("token");
-      console.log("🗑️ deleteComment action called with commentId:", commentId);
+      // Handle both object { commentId, postId } and plain commentId for backward compatibility
+      const commentId = typeof commentData === 'object' ? commentData.commentId : commentData;
+      const postId = typeof commentData === 'object' ? commentData.postId : null;
+      
+      console.log("🗑️ deleteComment action called with commentId:", commentId, "postId:", postId);
       console.log("🔍 Using endpoint: /api/comments/" + commentId);
       
       const { data } = await api.delete(`/api/comments/${commentId}`, {
@@ -785,7 +789,7 @@ export const deleteComment = createAsyncThunk(
         },
       });
       console.log("✅ Comment Deleted successfully:", data);
-      return { commentId, data };
+      return { commentId, postId, data };
     } catch (error) {
       console.log(
         "❌ Error deleting comment:",

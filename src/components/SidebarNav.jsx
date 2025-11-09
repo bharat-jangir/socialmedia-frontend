@@ -25,7 +25,7 @@ export const navigationMenu = [
   },
   {
     title: "Notifications",
-    icon: <NotificationBell />,
+    icon: <NotificationBell asIcon={true} />,
     path: "/notifications",
   },
   {

@@ -213,7 +213,43 @@ const postSlice = createSlice({
         return { ...state, loading: true, error: null };
       }),
       builder.addCase(getAllPosts.fulfilled, (state, action) => {
-        return { ...state, loading: false, posts: action.payload, error: null };
+        const receivedPosts = action.payload || [];
+        
+        // Merge received posts with existing posts, preserving locally updated counts
+        const existingPostsMap = new Map();
+        (state.posts || []).forEach(post => {
+          const postId = post.id?.toString();
+          if (postId) {
+            existingPostsMap.set(postId, post);
+          }
+        });
+        
+        const mergedPosts = receivedPosts.map(receivedPost => {
+          const receivedPostId = receivedPost.id?.toString();
+          const existingPost = receivedPostId ? existingPostsMap.get(receivedPostId) : null;
+          
+          // Preserve locally updated totalComments if it differs from received count
+          if (existingPost && existingPost.totalComments !== undefined && receivedPost.totalComments !== undefined) {
+            const existingCount = existingPost.totalComments || 0;
+            const receivedCount = receivedPost.totalComments || 0;
+            
+            if (existingCount !== receivedCount) {
+              console.log("🔄 Preserving locally updated totalComments (getAllPosts):", {
+                postId: receivedPostId,
+                existingCount,
+                receivedCount,
+                using: existingCount
+              });
+              return {
+                ...receivedPost,
+                totalComments: existingCount
+              };
+            }
+          }
+          return receivedPost;
+        });
+        
+        return { ...state, loading: false, posts: mergedPosts, error: null };
       }),
       builder.addCase(getAllPosts.rejected, (state, action) => {
         return { ...state, loading: false, error: action.payload };
@@ -243,12 +279,60 @@ const postSlice = createSlice({
           currentPostsCount: state.posts?.length || 0
         });
         
+        // Merge received posts with existing posts, preserving locally updated counts
+        let mergedPosts;
+        if (page === 0) {
+          // For first page, replace posts but preserve locally updated totalComments
+          // Create a map of existing posts by ID for quick lookup
+          const existingPostsMap = new Map();
+          (state.posts || []).forEach(post => {
+            const postId = post.id?.toString();
+            if (postId) {
+              existingPostsMap.set(postId, post);
+            }
+          });
+          
+          mergedPosts = receivedPosts.map(receivedPost => {
+            const receivedPostId = receivedPost.id?.toString();
+            const existingPost = receivedPostId ? existingPostsMap.get(receivedPostId) : null;
+            
+            // If we have an existing post, check if its totalComments was locally updated
+            // We preserve the local count if it differs from the received count
+            // This handles cases where local updates (add/delete comment) haven't been synced to backend yet
+            if (existingPost && existingPost.totalComments !== undefined && receivedPost.totalComments !== undefined) {
+              const existingCount = existingPost.totalComments || 0;
+              const receivedCount = receivedPost.totalComments || 0;
+              
+              // If counts differ, prefer the existing (locally updated) count
+              // This ensures our local updates (both increments AND decrements) aren't overwritten by stale backend data
+              // We preserve regardless of whether existing is higher or lower, as both indicate local changes
+              if (existingCount !== receivedCount) {
+                console.log("🔄 Preserving locally updated totalComments:", {
+                  postId: receivedPostId,
+                  existingCount,
+                  receivedCount,
+                  using: existingCount,
+                  reason: existingCount > receivedCount ? "local increment" : "local decrement"
+                });
+                return {
+                  ...receivedPost,
+                  totalComments: existingCount
+                };
+              }
+            }
+            return receivedPost;
+          });
+        } else {
+          // For subsequent pages, append new posts
+          mergedPosts = [...(state.posts || []), ...receivedPosts];
+        }
+        
         return {
           ...state,
           loading: false,
           loadingMore: false,
           error: null,
-          posts: page === 0 ? receivedPosts : [...(state.posts || []), ...receivedPosts], // Append for infinite scroll
+          posts: mergedPosts,
           currentPage: page,
           totalPages,
           hasMore: calculatedHasMore,
@@ -269,17 +353,51 @@ const postSlice = createSlice({
         return { ...state, loading: true, error: null };
       }),
       builder.addCase(getUsersPosts.fulfilled, (state, action) => {
-        const posts = action.payload || [];
+        const receivedPosts = action.payload || [];
         console.log("getUsersPosts.fulfilled:", {
-          receivedPostsCount: posts.length,
+          receivedPostsCount: receivedPosts.length,
           currentPostsCount: state.posts?.length || 0,
-          posts: posts
+          posts: receivedPosts
+        });
+        
+        // Merge received posts with existing posts, preserving locally updated counts
+        const existingPostsMap = new Map();
+        (state.posts || []).forEach(post => {
+          const postId = post.id?.toString();
+          if (postId) {
+            existingPostsMap.set(postId, post);
+          }
+        });
+        
+        const mergedPosts = receivedPosts.map(receivedPost => {
+          const receivedPostId = receivedPost.id?.toString();
+          const existingPost = receivedPostId ? existingPostsMap.get(receivedPostId) : null;
+          
+          // Preserve locally updated totalComments if it differs from received count
+          if (existingPost && existingPost.totalComments !== undefined && receivedPost.totalComments !== undefined) {
+            const existingCount = existingPost.totalComments || 0;
+            const receivedCount = receivedPost.totalComments || 0;
+            
+            if (existingCount !== receivedCount) {
+              console.log("🔄 Preserving locally updated totalComments (getUsersPosts):", {
+                postId: receivedPostId,
+                existingCount,
+                receivedCount,
+                using: existingCount
+              });
+              return {
+                ...receivedPost,
+                totalComments: existingCount
+              };
+            }
+          }
+          return receivedPost;
         });
         
         return { 
           ...state, 
           loading: false, 
-          posts: posts, // Direct assignment, no concatenation
+          posts: mergedPosts, // Merge instead of direct assignment to preserve local updates
           error: null 
         };
       }),
@@ -429,13 +547,29 @@ const postSlice = createSlice({
         };
       }),
       builder.addCase(getUserProfileData.fulfilled, (state, action) => {
+        // Backend returns null for posts/reels in getUserProfileData
+        // They are fetched separately via getUsersPosts and getUserReels
+        // So we should NOT overwrite existing posts/reels if they're null in the response
+        // However, if userProfile changes (switching users), we should clear posts/reels
+        // to prevent showing data from the previous user
+        const isDifferentUser = state.userProfile?.id?.toString() !== action.payload.user?.id?.toString();
+        
         return {
           ...state,
           loading: false,
           userProfile: action.payload.user,
-          posts: Array.isArray(action.payload.posts) ? action.payload.posts : [],
-          savedPosts: Array.isArray(action.payload.savedPosts) ? action.payload.savedPosts : [],
-          userReels: Array.isArray(action.payload.reels) ? action.payload.reels : [],
+          // Only update posts/reels if they're actually provided as arrays in the response
+          // If null/undefined and we're switching users, clear them (they'll be loaded by separate calls)
+          // If null/undefined and same user, preserve existing data
+          posts: Array.isArray(action.payload.posts) 
+            ? action.payload.posts 
+            : (isDifferentUser ? [] : (state.posts || [])),
+          savedPosts: Array.isArray(action.payload.savedPosts) 
+            ? action.payload.savedPosts 
+            : (isDifferentUser ? [] : (state.savedPosts || [])),
+          userReels: Array.isArray(action.payload.reels) 
+            ? action.payload.reels 
+            : (isDifferentUser ? [] : (state.userReels || [])),
           postsCount: action.payload.postsCount || 0,
           savedPostsCount: action.payload.savedPostsCount || 0,
           reelsCount: action.payload.reelsCount || 0,
@@ -575,12 +709,19 @@ const postSlice = createSlice({
           userLname: comment.user?.lname
         });
         
-        // Use real API response only - no processing
-        const processedComment = { ...comment, isOptimistic: false, isPending: false };
+        // Use real API response, but ensure postId is stored with the comment
+        // This is critical for delete operations to know which post the comment belongs to
+        const processedComment = { 
+          ...comment, 
+          postId: postId, // Explicitly store postId with the comment
+          isOptimistic: false, 
+          isPending: false 
+        };
         
-        // Ensure postComments structure exists
-        if (!state.postComments[postId]) {
-          state.postComments[postId] = {
+        // Ensure postComments structure exists - normalize postId to string for consistency
+        const normalizedPostId = postId?.toString();
+        if (!state.postComments[normalizedPostId]) {
+          state.postComments[normalizedPostId] = {
             comments: [],
             currentPage: 0,
             hasMore: true,
@@ -590,21 +731,54 @@ const postSlice = createSlice({
         
         // Add the original API response comment to the top of the list
         console.log("➕ Adding original API response comment to top of list");
-        state.postComments[postId].comments = [processedComment, ...state.postComments[postId].comments];
+        state.postComments[normalizedPostId].comments = [processedComment, ...state.postComments[normalizedPostId].comments];
+        
+        // Also add to the flat comments array (used by PostModal)
+        // Check if comment already exists to avoid duplicates
+        const existingCommentIndex = state.comments.findIndex(c => c.id?.toString() === processedComment.id?.toString());
+        const isNewComment = existingCommentIndex === -1;
+        
+        if (isNewComment) {
+          state.comments = [processedComment, ...state.comments];
+          console.log("➕ Added comment to flat comments array for PostModal");
+        } else {
+          // Update existing comment if it's already there (shouldn't happen, but handle it)
+          state.comments[existingCommentIndex] = processedComment;
+          console.log("🔄 Updated existing comment in flat comments array (unexpected - comment already existed)");
+        }
         
         // Also update the main posts array if it exists
-        const postIndex = state.posts.findIndex(post => post.id === postId);
+        // Ensure proper ID matching (handle both string and number IDs)
+        const postIndex = state.posts.findIndex(post => 
+          post.id?.toString() === postId?.toString() || post.id === postId
+        );
         if (postIndex !== -1) {
-          // Update totalComments count
-          state.posts[postIndex].totalComments = (state.posts[postIndex].totalComments || 0) + 1;
-          console.log("📊 Updated post totalComments count:", state.posts[postIndex].totalComments);
+          // Only increment if this is a new comment (not an update)
+          if (isNewComment) {
+            const oldCount = state.posts[postIndex].totalComments || 0;
+            state.posts[postIndex].totalComments = oldCount + 1;
+            console.log("📊 Updated post totalComments count (incremented):", {
+              postId,
+              postIndex,
+              oldCount,
+              newCount: state.posts[postIndex].totalComments,
+              commentId: processedComment.id
+            });
+          } else {
+            console.log("📊 Skipped incrementing totalComments - comment already existed:", {
+              postId,
+              commentId: processedComment.id
+            });
+          }
+        } else {
+          console.warn("⚠️ Post not found in state.posts for postId:", postId, "Available posts:", state.posts.map(p => p.id));
         }
         
         // Optional: Store comment in localStorage as backup
         try {
-          const existingComments = JSON.parse(localStorage.getItem(`comments_${postId}`) || '[]');
+          const existingComments = JSON.parse(localStorage.getItem(`comments_${normalizedPostId}`) || '[]');
           const updatedComments = [processedComment, ...existingComments];
-          localStorage.setItem(`comments_${postId}`, JSON.stringify(updatedComments));
+          localStorage.setItem(`comments_${normalizedPostId}`, JSON.stringify(updatedComments));
           console.log("💾 Comment stored in localStorage as backup");
         } catch (error) {
           console.log("⚠️ Failed to store comment in localStorage:", error);
@@ -621,10 +795,48 @@ const postSlice = createSlice({
         return { ...state, loading: true, error: null };
       }),
       builder.addCase(fetchComments.fulfilled, (state, action) => {
+        const { postId, comments: fetchedComments } = action.payload;
+        const commentsArray = fetchedComments || [];
+        
+        // Ensure all fetched comments have postId stored
+        // This is critical for delete operations to know which post the comment belongs to
+        const commentsWithPostId = commentsArray.map(comment => ({
+          ...comment,
+          postId: comment.postId || postId // Use comment's postId if available, otherwise use from payload
+        }));
+        
+        // Create a map of fetched comments by ID for quick lookup
+        const fetchedCommentsMap = new Map();
+        commentsWithPostId.forEach(comment => {
+          fetchedCommentsMap.set(comment.id?.toString(), comment);
+        });
+        
+        // Only preserve optimistic/temporary comments that aren't in fetched list
+        // DO NOT preserve regular comments that aren't in fetched list (they were likely deleted)
+        const existingComments = state.comments || [];
+        const preservedComments = existingComments.filter(existingComment => {
+          const existingId = existingComment.id?.toString();
+          const isTemporary = existingId?.startsWith('temp_') || existingComment.isOptimistic;
+          const existsInFetched = fetchedCommentsMap.has(existingId);
+          
+          // Only preserve temporary/optimistic comments that don't exist in fetched list
+          // Regular comments that aren't in fetched list should be removed (they were deleted)
+          return isTemporary && !existsInFetched;
+        });
+        
+        // Combine: fetched comments (source of truth) + preserved temporary comments
+        const mergedComments = [...commentsWithPostId];
+        preservedComments.forEach(preservedComment => {
+          const preservedId = preservedComment.id?.toString();
+          if (preservedId && !mergedComments.some(c => c.id?.toString() === preservedId)) {
+            mergedComments.push(preservedComment);
+          }
+        });
+        
         return {
           ...state,
           loading: false,
-          comments: action.payload.comments,
+          comments: mergedComments,
           error: null,
         };
       }),
@@ -650,39 +862,125 @@ const postSlice = createSlice({
         state.error = null;
       }),
       builder.addCase(deleteComment.fulfilled, (state, action) => {
-        const { commentId } = action.payload;
+        const { commentId, postId, data } = action.payload;
         
-        console.log("✅ Comment Delete API Success - Removing comment locally:", commentId);
+        console.log("✅ Comment Delete API Success - Removing comment locally:", commentId, "for post:", postId);
         
-        // Remove comment from all post comments lists
-        Object.keys(state.postComments).forEach(postId => {
-          const beforeCount = state.postComments[postId].comments.length;
-          state.postComments[postId].comments = state.postComments[postId].comments.filter(
-            comment => comment.id !== commentId
-          );
-          const afterCount = state.postComments[postId].comments.length;
-          
-          if (beforeCount > afterCount) {
-            console.log("🗑️ Comment removed from Redux state for post:", postId);
-            
-            // Update post totalComments count
-            const postIndex = state.posts.findIndex(post => post.id === parseInt(postId));
-            if (postIndex !== -1) {
-              state.posts[postIndex].totalComments = Math.max((state.posts[postIndex].totalComments || 0) - 1, 0);
-              console.log("📊 Updated post totalComments count after delete:", state.posts[postIndex].totalComments);
-            }
-            
-            // Also remove from localStorage
-            try {
-              const existingComments = JSON.parse(localStorage.getItem(`comments_${postId}`) || '[]');
-              const updatedComments = existingComments.filter(comment => comment.id !== commentId);
-              localStorage.setItem(`comments_${postId}`, JSON.stringify(updatedComments));
-              console.log("🗑️ Comment removed from localStorage for post:", postId);
-            } catch (error) {
-              console.log("⚠️ Failed to remove comment from localStorage:", error);
+        // Determine which post this comment belongs to
+        // Priority: 1) postId from action payload, 2) postId from comment object, 3) postId from backend response, 4) find by searching
+        let targetPostId = null;
+        
+        // First priority: postId passed directly in action payload
+        if (postId) {
+          targetPostId = postId.toString();
+        } else {
+          // Second priority: find comment and get its postId
+          const commentToDelete = state.comments.find(c => c.id?.toString() === commentId?.toString());
+          if (commentToDelete?.postId) {
+            targetPostId = commentToDelete.postId.toString();
+          } else if (data?.postId) {
+            // Third priority: backend might return postId in response
+            targetPostId = data.postId.toString();
+          } else {
+            // Fallback: find which post has this comment (only first match)
+            // Check all possible postId formats (string and number)
+            for (const pid of Object.keys(state.postComments)) {
+              const hasComment = state.postComments[pid]?.comments?.some(
+                c => c.id?.toString() === commentId?.toString()
+              );
+              if (hasComment) {
+                targetPostId = pid;
+                break; // Only use first match to avoid multiple decrements
+              }
             }
           }
-        });
+        }
+        
+        // Normalize targetPostId to string for consistency
+        if (targetPostId) {
+          targetPostId = targetPostId.toString();
+        }
+        
+        // Remove comment from the flat comments array (used by PostModal)
+        const beforeCount = state.comments.length;
+        state.comments = state.comments.filter(
+          comment => comment.id?.toString() !== commentId?.toString()
+        );
+        const afterCount = state.comments.length;
+        if (beforeCount > afterCount) {
+          console.log("🗑️ Comment removed from flat comments array");
+        }
+        
+        // Only update the specific post that this comment belongs to
+        if (targetPostId) {
+          // Remove comment from the specific post's comments list
+          if (state.postComments[targetPostId]) {
+            const beforeCount = state.postComments[targetPostId].comments.length;
+            const commentExists = state.postComments[targetPostId].comments.some(
+              c => c.id?.toString() === commentId?.toString()
+            );
+            
+            if (commentExists) {
+              state.postComments[targetPostId].comments = state.postComments[targetPostId].comments.filter(
+                comment => comment.id?.toString() !== commentId?.toString()
+              );
+              const afterCount = state.postComments[targetPostId].comments.length;
+              
+              console.log("🗑️ Comment removed from Redux state for post:", {
+                postId: targetPostId,
+                commentId,
+                beforeCount,
+                afterCount
+              });
+              
+              // Update post totalComments count - only for the specific post
+              const postIndex = state.posts.findIndex(post => 
+                post.id?.toString() === targetPostId?.toString() || post.id === parseInt(targetPostId)
+              );
+              if (postIndex !== -1) {
+                const oldCount = state.posts[postIndex].totalComments || 0;
+                // Only decrement if the comment actually existed and was removed
+                if (beforeCount > afterCount) {
+                  state.posts[postIndex].totalComments = Math.max(oldCount - 1, 0);
+                  console.log("📊 Updated post totalComments count after delete (decremented):", {
+                    postId: targetPostId,
+                    postIndex,
+                    oldCount,
+                    newCount: state.posts[postIndex].totalComments,
+                    commentId
+                  });
+                } else {
+                  console.warn("⚠️ Comment count didn't decrease - comment may not have existed:", {
+                    postId: targetPostId,
+                    commentId,
+                    beforeCount,
+                    afterCount
+                  });
+                }
+              } else {
+                console.warn("⚠️ Post not found in state.posts for postId:", targetPostId, "Available posts:", state.posts.map(p => p.id));
+              }
+              
+              // Also remove from localStorage
+              try {
+                const existingComments = JSON.parse(localStorage.getItem(`comments_${targetPostId}`) || '[]');
+                const updatedComments = existingComments.filter(comment => comment.id?.toString() !== commentId?.toString());
+                localStorage.setItem(`comments_${targetPostId}`, JSON.stringify(updatedComments));
+                console.log("🗑️ Comment removed from localStorage for post:", targetPostId);
+              } catch (error) {
+                console.log("⚠️ Failed to remove comment from localStorage:", error);
+              }
+            }
+          }
+        } else {
+          console.warn("⚠️ Could not determine postId for deleted comment:", commentId);
+          // Fallback: remove from all posts (old behavior, but log a warning)
+          Object.keys(state.postComments).forEach(postId => {
+            state.postComments[postId].comments = state.postComments[postId].comments.filter(
+              comment => comment.id?.toString() !== commentId?.toString()
+            );
+          });
+        }
         
         state.error = null;
       }),
